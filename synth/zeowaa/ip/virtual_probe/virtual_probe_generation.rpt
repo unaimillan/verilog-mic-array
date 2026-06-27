@@ -1,0 +1,28 @@
+Info: Starting: Create block symbol file (.bsf)
+Info: qsys-generate /home/user/projects/verilog-mic-array/synth/zeowaa/ip/virtual_probe.qsys --block-symbol-file --output-directory=/home/user/projects/verilog-mic-array/synth/zeowaa/ip/virtual_probe --family="Cyclone IV E" --part=EP4CE6E22C8
+Progress: Loading ip/virtual_probe.qsys
+Progress: Reading input file
+Progress: Adding in_system_sources_probes_0 [altera_in_system_sources_probes 24.1]
+Progress: Parameterizing module in_system_sources_probes_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: qsys-generate succeeded.
+Info: Finished: Create block symbol file (.bsf)
+Info: 
+Info: Starting: Create HDL design files for synthesis
+Info: qsys-generate /home/user/projects/verilog-mic-array/synth/zeowaa/ip/virtual_probe.qsys --synthesis=VERILOG --output-directory=/home/user/projects/verilog-mic-array/synth/zeowaa/ip/virtual_probe/synthesis --family="Cyclone IV E" --part=EP4CE6E22C8
+Progress: Loading ip/virtual_probe.qsys
+Progress: Reading input file
+Progress: Adding in_system_sources_probes_0 [altera_in_system_sources_probes 24.1]
+Progress: Parameterizing module in_system_sources_probes_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: virtual_probe: Generating "virtual_probe" for QUARTUS_SYNTH
+Info: in_system_sources_probes_0: "virtual_probe" instantiated altera_in_system_sources_probes "in_system_sources_probes_0"
+Info: virtual_probe: Done "virtual_probe" with 2 modules, 2 files
+Info: qsys-generate succeeded.
+Info: Finished: Create HDL design files for synthesis

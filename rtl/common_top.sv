@@ -72,28 +72,48 @@ module common_top
 
     // TODO: Implementation
 
-    logic [1:0][23:0] mic_value;
+    logic [3:0]       sample_valid;
+    logic [3:0][23:0] sample;
 
-    inmp441_mic_i2s_receiver
+    inmp441_mic_i2s_receiver_with_valid
     # (
         .clk_mhz ( clk_mhz  )
     )
     i_microphone
     (
-        .clk     ( clk      ),
-        .rst     ( rst      ),
-        .lr      ( gpio [5] ),  // P33
-        .ws      ( gpio [3] ),  // P31
-        .sck     ( gpio [1] ),  // P28
-        .sd      ( gpio [0] ),  // P30
-        .value   ( mic_value[0] )
+        .clk          ( clk              ),
+        .rst          ( rst              ),
+        .lr           ( gpio [5]         ),  // P33
+        .ws           ( gpio [3]         ),  // P31
+        .sck          ( gpio [1]         ),  // P28
+        .sd           ( gpio [0]         ),  // P30
+        .sample_valid ( sample_valid [0] ),
+        .sample       ( sample       [0] )
     );
 
     assign gpio [4] = 1'b0;  // P34 - GND
     assign gpio [2] = 1'b1;  // P32 - VCC
 
-    assign led[0] = ^ mic_value;
+    assign led[0] = ^ sample;
+
+    logic [63:0] clk_cnt, sample_cnt;
+
+    counter clk_cnt_i ( .clk ( clk ), .rst ( rst ), .trig ( '1 ), .counter ( clk_cnt ) );
+
+    counter sample_cnt_i ( .clk ( clk ), .rst ( rst ), .trig ( sample_valid[0] ), .counter ( sample_cnt ) );
 
     //------------------------------------------------------------------------
+
+    virtual_probe probe0_i
+    (
+        .source ( ),
+        .probe  ( clk_cnt )
+    );
+
+    virtual_probe probe1_i
+    (
+        .source ( ),
+        .probe  ( sample_cnt )
+    );
 
 endmodule
