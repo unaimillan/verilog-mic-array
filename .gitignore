@@ -1,3 +1,19 @@
+# FPGA related
+/rtl/program.hex
+
+/synth/**/db/
+/synth/**/incremental_db/
+/synth/**/output_files/
+/synth/**/output_files*/
+/synth/**/*.bak
+/synth/**/*.qws
+
+/sim/*/output_files/
+
+/skywater-pdk
+/netlist.v
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

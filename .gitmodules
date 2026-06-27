@@ -1,0 +1,3 @@
+[submodule "include/basics-graphics-music"]
+	path = include/basics-graphics-music
+	url = https://github.com/yuri-panchul/basics-graphics-music
