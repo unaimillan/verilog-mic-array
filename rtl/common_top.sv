@@ -72,48 +72,78 @@ module common_top
 
     // TODO: Implementation
 
-    logic [3:0]       sample_valid;
-    logic [3:0][23:0] sample;
+    logic        sample_valid /*synthesis keep*/;
+    logic [23:0] sample_raw;
+    logic [15:0] sample /*synthesis keep*/;
 
+    // Zaewoo pins
+    // inmp441_mic_i2s_receiver_with_valid
+    // # (
+    //     .clk_mhz ( clk_mhz  )
+    // )
+    // i_microphone
+    // (
+    //     .clk          ( clk          ),
+    //     .rst          ( rst          ),
+
+    //     .lr_ch        ( 1'b0         ),
+    //     .sample_valid ( sample_valid ),
+    //     .sample       ( sample       ),
+
+    //     .lr           ( gpio [5]     ),  // P33
+    //     .ws           ( gpio [3]     ),  // P31
+    //     .sck          ( gpio [1]     ),  // P28
+    //     .sd           ( gpio [0]     )   // P30
+    // );
+    // assign gpio [4] = 1'b0;  // P34 - GND
+    // assign gpio [2] = 1'b1;  // P32 - VCC
+
+    
     inmp441_mic_i2s_receiver_with_valid
     # (
         .clk_mhz ( clk_mhz  )
     )
     i_microphone
     (
-        .clk          ( clk              ),
-        .rst          ( rst              ),
-        .lr           ( gpio [5]         ),  // P33
-        .ws           ( gpio [3]         ),  // P31
-        .sck          ( gpio [1]         ),  // P28
-        .sd           ( gpio [0]         ),  // P30
-        .sample_valid ( sample_valid [0] ),
-        .sample       ( sample       [0] )
+        .clk     ( clk      ),
+        .rst     ( rst      ),
+
+        .lr_ch        ( 1'b0         ),
+        .sample_valid ( sample_valid ),
+        .sample       ( sample_raw   ),
+
+        .lr      ( gpio [0] ), // JP1 pin 1
+        .ws      ( gpio [2] ), // JP1 pin 3
+        .sck     ( gpio [4] ), // JP1 pin 5
+        .sd      ( gpio [5] )  // JP1 pin 6
     );
-
-    assign gpio [4] = 1'b0;  // P34 - GND
-    assign gpio [2] = 1'b1;  // P32 - VCC
-
-    assign led[0] = ^ sample;
-
-    logic [63:0] clk_cnt, sample_cnt;
-
-    counter clk_cnt_i ( .clk ( clk ), .rst ( rst ), .trig ( '1 ), .counter ( clk_cnt ) );
-
-    counter sample_cnt_i ( .clk ( clk ), .rst ( rst ), .trig ( sample_valid[0] ), .counter ( sample_cnt ) );
+    assign gpio [1] = 1'b0; // GND - JP1 pin 2
+    assign gpio [3] = 1'b1; // VCC - JP1 pin 4
 
     //------------------------------------------------------------------------
 
-    virtual_probe probe0_i
-    (
-        .source ( ),
-        .probe  ( clk_cnt )
-    );
+    // assign sample = { sample_raw[23], sample_raw[ 0 +: 17] };
+    assign sample = sample_raw;
 
-    virtual_probe probe1_i
-    (
-        .source ( ),
-        .probe  ( sample_cnt )
-    );
+    assign led[1] = ^ { sample_valid, sample };
+
+    // logic_analyzer la_inst (
+    //     .acq_clk        ( clk          ), // input
+    //     .storage_enable ( sample_valid ), // input
+    //     .acq_data_in    ( sample_cnt   ) // input [23:0]
+    //     // .acq_trigger_in (  )  // input [31:0]
+    // );
+
+    // virtual_probe probe0_i
+    // (
+    //     .source ( ),
+    //     .probe  ( clk_cnt )
+    // );
+
+    // virtual_probe probe1_i
+    // (
+    //     .source ( ),
+    //     .probe  ( sample_cnt )
+    // );
 
 endmodule

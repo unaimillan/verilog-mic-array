@@ -9,17 +9,29 @@ module inmp441_mic_i2s_receiver_with_valid
 (
     input               clk,
     input               rst,
+
+    //--------------------------------------------------------------------------
+    // Internal interface
+    //--------------------------------------------------------------------------
+
+    input               lr_ch,
+
+    output logic        sample_valid,
+    output logic [23:0] sample,
+
+    //--------------------------------------------------------------------------
+    // External I2S interface
+    //--------------------------------------------------------------------------
+
     output              lr,
     output logic        ws,
     output              sck,
-    input               sd,
-    output logic        sample_valid,
-    output logic [23:0] sample
+    input               sd
 );
 
-    assign lr = 1'b0;
+    assign lr = lr_ch;
 
-    //------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
 
     logic clk_en;
 
