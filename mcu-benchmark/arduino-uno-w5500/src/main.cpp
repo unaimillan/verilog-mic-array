@@ -1,57 +1,61 @@
-
+#include <Arduino.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
 
-// Enter a MAC address and IP address for your controller below.
-// The IP address will be dependent on your local network:
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-};
-IPAddress ip(192, 168, 1, 177);
 
-unsigned int localPort = 8888;      // local port to listen on
+// ========== Configuration (all constants) ==========
 
-// IPAddress ip(192, 168, 1, 100);                       // Static IP for this board
-// IPAddress gateway(192, 168, 1, 1);
-// IPAddress subnet(255, 255, 255, 0);
+// MAC address (must be unique on your network)
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
-IPAddress targetIP(192, 168, 1, 200);                // Destination IP
-const uint16_t targetPort = 8888;                    // Destination UDP port
+// Local static IP, gateway, subnet mask
+IPAddress localIP(192, 168, 1, 10);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 255, 0);
+const unsigned int localPort = 8880;
 
-// buffers for receiving and sending data
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
-char ReplyBuffer[] = "acknowledged";        // a string to send back
+// Target (receiver) IP and port
+IPAddress targetIP(192, 168, 1, 100);
+const unsigned int targetPort = 8888;
 
-// An EthernetUDP instance to let us send and receive packets over UDP
+// W5500 CS pin (usually pin 10)
+const int w5500_CS = 10;
+
+// Create UDP object
 EthernetUDP Udp;
 
+// ========== Setup ==========
+
 void setup() {
-  // Open serial communications and wait for port to open:
   Serial.begin(9600);
-  while (!Serial) {
-      ; // wait for serial port to connect. Needed for native USB port only
-  }
+//   Serial.begin(115200);
+  while (!Serial) { ; }   // wait for serial monitor (optional)
 
+  // Set the correct CS pin for W5500
+  Ethernet.init(w5500_CS);
 
-  // You can use Ethernet.init(pin) to configure the CS pin
-  Ethernet.init(10);  // Most Arduino shields
-  //Ethernet.init(5);   // MKR ETH Shield
-  //Ethernet.init(0);   // Teensy 2.0
-  //Ethernet.init(20);  // Teensy++ 2.0
-  //Ethernet.init(15);  // ESP8266 with Adafruit FeatherWing Ethernet
-  //Ethernet.init(33);  // ESP32 with Adafruit FeatherWing Ethernet
+  // Start Ethernet with static IP (no DHCP)
+  Ethernet.begin(mac, localIP, gateway, subnet);
 
-  // start the Ethernet
-  Ethernet.begin(mac, ip);
-  
-  // // Initialize Ethernet with static IP
-  // Ethernet.begin(mac, ip, gateway, subnet);
-  // Serial.print("Local IP: ");
-  // Serial.println(Ethernet.localIP());
+  // Wait for the Ethernet to initialise
+  delay(1000);
+
+  // Initialise UDP – we bind to a local port (send‑only, no listen)
+  Udp.begin(localPort);
+
+  delay(1000);
+
+  // Print local IP for debugging
+  Serial.print("Local IP: ");
+  Serial.println(Ethernet.localIP());
+  Serial.println("Sending to: ");
+  Serial.print(targetIP);
+  Serial.print(":");
+  Serial.println(targetPort);
 
   // Check for Ethernet hardware present
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-    Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+    Serial.println("Ethernet shield was not found. Sorry, can't run without hardware. :(");
     while (true) {
       delay(1); // do nothing, no point running without Ethernet hardware
     }
@@ -64,59 +68,37 @@ void setup() {
   Serial.println((uint32_t) Ethernet.linkStatus);
   Serial.print(", hardware status: ");
   Serial.println((uint32_t) Ethernet.hardwareStatus);
-
-  // Ethernet.socketStatus(0);
-
-  // start UDP
-  // Udp.begin(localPort);
-
-  delay(1000);
 }
 
+// ========== Main Loop ==========
 void loop() {
-  // if there's data available, read a packet
-  int packetSize = Udp.parsePacket();
+  // Read the four analog pins (10‑bit values 0–1023)
+  int16_t readings[4];
+  readings[0] = (int16_t) analogRead(A0);
+  readings[1] = (int16_t) analogRead(A1);
+  readings[2] = (int16_t) analogRead(A2);
+  readings[3] = (int16_t) analogRead(A3);
 
-  if (packetSize) {
-    Serial.print("Received packet of size ");
-    Serial.println(packetSize);
-    Serial.print("From ");
-    IPAddress remote = Udp.remoteIP();
-    for (int i=0; i < 4; i++) {
-      Serial.print(remote[i], DEC);
-      if (i < 3) {
-        Serial.print(".");
-      }
-    }
-    Serial.print(", port ");
-    Serial.println(Udp.remotePort());
+  // Pack the 4 int16_t values into a byte buffer (8 bytes total)
+  uint8_t packetBuffer[8];
+  memcpy(packetBuffer, readings, sizeof(readings));
 
-    // read the packet into packetBuffer
-    Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-    Serial.println("Contents:");
-    Serial.println(packetBuffer);
+  // Send the packet via UDP (no receive, just send)
+  Udp.beginPacket(targetIP, targetPort);
+  Udp.write(packetBuffer, 8);
+  Udp.endPacket();
 
-    // send a reply to the IP address and port that sent us the packet we received
-    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    Udp.write(ReplyBuffer);
-    Udp.endPacket();
-
-
-    int16_t values[4];
+  // if (random(1, 4) == 1)
+  {
+    // Optional debug output to Serial
+    Serial.print("Sent: ");
     for (int i = 0; i < 4; i++) {
-      values[i] = analogRead(A0);  // fits in int16_t
+      Serial.print(readings[i]);
+      Serial.print(" ");
     }
-
-    // 2. Pack the four int16_t values into a byte buffer
-    //    Using memcpy for simplicity (host byte order, little-endian on AVR)
-    uint8_t packetBuffer[8];
-    memcpy(packetBuffer, values, sizeof(values));
-
-    // 3. Send the packet via UDP
-    Udp.beginPacket(targetIP, targetPort);
-    Udp.write(packetBuffer, sizeof(packetBuffer));
-    Udp.endPacket();
+    Serial.println();
   }
 
-  delay(1000);
+  // Wait before next send (adjust as needed)
+  delay(100);
 }
