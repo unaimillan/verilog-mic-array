@@ -27,12 +27,15 @@ EthernetUDP Udp;
 // ========== Setup ==========
 
 void setup() {
-  Serial.begin(9600);
-//   Serial.begin(115200);
+  // Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial) { ; }   // wait for serial monitor (optional)
 
+  Serial.println("Serial booted.");
+  delay(1000);
+
   // Set the correct CS pin for W5500
-  Ethernet.init(w5500_CS);
+  Ethernet.init(PIN_SPI_SS);
 
   // Start Ethernet with static IP (no DHCP)
   Ethernet.begin(mac, localIP, gateway, subnet);
@@ -48,10 +51,18 @@ void setup() {
   // Print local IP for debugging
   Serial.print("Local IP: ");
   Serial.println(Ethernet.localIP());
-  Serial.println("Sending to: ");
-  Serial.print(targetIP);
+  Serial.print("Sending to: ");
+  // Serial.print(targetIP);
+  Serial.print(Udp.remoteIP());
   Serial.print(":");
-  Serial.println(targetPort);
+  Serial.println(Udp.remotePort());
+
+  Serial.print("Link status: ");
+  Serial.println((int32_t) Ethernet.linkStatus);
+  Serial.print("Hardware status: ");
+  Serial.println((int32_t) Ethernet.hardwareStatus);
+  Serial.print("Udp available: ");
+  Serial.println(Udp.available());
 
   // Check for Ethernet hardware present
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
@@ -64,41 +75,58 @@ void setup() {
     Serial.println("Ethernet cable is not connected.");
   }
 
-  Serial.println("Link status: ");
-  Serial.println((uint32_t) Ethernet.linkStatus);
-  Serial.print(", hardware status: ");
-  Serial.println((uint32_t) Ethernet.hardwareStatus);
+  Serial.println("Ready to start?");
+  Serial.read();
+}
+
+uint8_t prbs_state = 2;
+
+static inline uint8_t prbs7_next(uint8_t state) {
+    // feedback = XOR of bit6 and bit5 (0-indexed)
+    // (state>>6) and (state>>5) are each 0 or 1, so XOR is already 0/1 – no &1 needed
+    return ((state << 1) | ((state >> 6) ^ (state >> 5))) & 0x7F;
 }
 
 // ========== Main Loop ==========
 void loop() {
   // Read the four analog pins (10‑bit values 0–1023)
-  int16_t readings[4];
-  readings[0] = (int16_t) analogRead(A0);
-  readings[1] = (int16_t) analogRead(A1);
-  readings[2] = (int16_t) analogRead(A2);
-  readings[3] = (int16_t) analogRead(A3);
+  const uint32_t DATA_N = 16;
+  int16_t readings[DATA_N];
+  
+  for (uint8_t i = 0; i < DATA_N; i ++) {
+    readings[i] = (int16_t) prbs_state;
+    // prbs_state = prbs7_next(prbs_state);
+    prbs_state += 1;
+  }
+  
+  // readings[0] = (int16_t) analogRead(A0);
+  // readings[1] = (int16_t) analogRead(A1);
+  // readings[2] = (int16_t) analogRead(A2);
+  // readings[3] = (int16_t) analogRead(A3);
 
   // Pack the 4 int16_t values into a byte buffer (8 bytes total)
-  uint8_t packetBuffer[8];
+  uint8_t packetBuffer[DATA_N * 2];
   memcpy(packetBuffer, readings, sizeof(readings));
 
   // Send the packet via UDP (no receive, just send)
   Udp.beginPacket(targetIP, targetPort);
-  Udp.write(packetBuffer, 8);
+  Udp.write(packetBuffer, DATA_N*2);
   Udp.endPacket();
 
-  // if (random(1, 4) == 1)
+  if (true)
   {
-    // Optional debug output to Serial
-    Serial.print("Sent: ");
-    for (int i = 0; i < 4; i++) {
-      Serial.print(readings[i]);
-      Serial.print(" ");
+    // if (random(1, 4) == 1)
+    {
+      // Optional debug output to Serial
+      Serial.print("Sent: ");
+      for (int i = 0; i < DATA_N; i++) {
+        Serial.print(readings[i]);
+        Serial.print(" ");
+      }
+      Serial.println();
     }
-    Serial.println();
-  }
 
-  // Wait before next send (adjust as needed)
-  delay(100);
+    // Wait before next send (adjust as needed)
+    delay(1000);
+  }
 }
