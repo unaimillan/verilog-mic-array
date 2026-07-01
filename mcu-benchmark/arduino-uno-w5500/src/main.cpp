@@ -28,7 +28,8 @@ EthernetUDP Udp;
 
 void setup() {
   // Serial.begin(9600);
-  Serial.begin(115200);
+  // Serial.begin(115200);
+  Serial.begin(1000000);
   while (!Serial) { ; }   // wait for serial monitor (optional)
 
   Serial.println("Serial booted.");
@@ -48,35 +49,44 @@ void setup() {
 
   delay(1000);
 
+  IPAddress              cur_localip    = Ethernet.localIP();
+  IPAddress              cur_remoteip   = Udp.remoteIP();
+  uint16_t               cur_remoteport = Udp.remotePort();
+  EthernetLinkStatus     cur_link       = Ethernet.linkStatus();
+  EthernetHardwareStatus cur_hw         = Ethernet.hardwareStatus();
+  int                    cur_udp        = Udp.available();
+
+  delay(1000);
+
   // Print local IP for debugging
   Serial.print("Local IP: ");
-  Serial.println(Ethernet.localIP());
+  Serial.println( cur_localip );
   Serial.print("Sending to: ");
   // Serial.print(targetIP);
-  Serial.print(Udp.remoteIP());
+  Serial.print( cur_remoteip );
   Serial.print(":");
-  Serial.println(Udp.remotePort());
+  Serial.println( cur_remoteport );
 
   Serial.print("Link status: ");
-  Serial.println((int32_t) Ethernet.linkStatus);
+  Serial.println((int32_t)  cur_link );
   Serial.print("Hardware status: ");
-  Serial.println((int32_t) Ethernet.hardwareStatus);
+  Serial.println((int32_t)  cur_hw );
   Serial.print("Udp available: ");
-  Serial.println(Udp.available());
+  Serial.println( cur_udp );
 
   // Check for Ethernet hardware present
-  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+  if (cur_hw == EthernetNoHardware) {
     Serial.println("Ethernet shield was not found. Sorry, can't run without hardware. :(");
     while (true) {
       delay(1); // do nothing, no point running without Ethernet hardware
     }
   }
-  if (Ethernet.linkStatus() == LinkOFF) {
+  if (cur_link == LinkOFF) {
     Serial.println("Ethernet cable is not connected.");
   }
 
   Serial.println("Ready to start?");
-  Serial.read();
+  delay(3000);
 }
 
 uint8_t prbs_state = 2;
@@ -117,9 +127,10 @@ void loop() {
   {
     // if (random(1, 4) == 1)
     {
+      delay(500);
       // Optional debug output to Serial
       Serial.print("Sent: ");
-      for (int i = 0; i < DATA_N; i++) {
+      for (u32 i = 0; i < DATA_N; i++) {
         Serial.print(readings[i]);
         Serial.print(" ");
       }
@@ -130,3 +141,52 @@ void loop() {
     delay(1000);
   }
 }
+
+
+	// Serial.print(">w a ");
+	// Serial.print(addr, HEX);
+	// Serial.print(", d[");
+	// Serial.print(len);
+	// Serial.print("] ");
+	// for (u32 i = 0; i < len; i ++){
+	// 	Serial.print(buf[i], HEX);
+	// }
+	// Serial.println();
+	// delay(100);
+
+	// Serial.print(">r a ");
+	// Serial.print(addr, HEX);
+	// Serial.print(", d[");
+	// Serial.print(len);
+	// Serial.print("] ");
+	// for (u32 i = 0; i < len; i ++){
+	// 	Serial.print(buf[i], HEX);
+	// }
+	// Serial.println();
+	// delay(100);
+
+	
+	// if (addr != 0x1002){
+	// 	Serial.print(">SPI read: addr ");
+	// 	Serial.print(addr, HEX);
+	// 	Serial.print(", data[");
+	// 	Serial.print(len);
+	// 	Serial.print("] ");
+	// 	for (u32 i = 0; i < len; i ++){
+	// 		Serial.print(buf[i], HEX);
+	// 	}
+	// 	Serial.println();
+	// 	delay(100);
+	// }
+
+
+	// Serial.print(">SPI write: addr ");
+	// Serial.print(addr, HEX);
+	// Serial.print(", data[");
+	// Serial.print(len);
+	// Serial.print("] ");
+	// for (u32 i = 0; i < len; i ++){
+	// 	Serial.print(buf[i], HEX);
+	// }
+	// Serial.println();
+	// delay(100);
