@@ -98,7 +98,6 @@ module common_top
     // assign gpio [4] = 1'b0;  // P34 - GND
     // assign gpio [2] = 1'b1;  // P32 - VCC
 
-    
     inmp441_mic_i2s_receiver_with_valid
     # (
         .clk_mhz ( clk_mhz  )
@@ -122,10 +121,40 @@ module common_top
 
     //------------------------------------------------------------------------
 
+    localparam CLK_FREQUENCY = 50_000_000;
+    localparam SPI_FREQUENCY = 2_000_000;
+    localparam IDLE_NS = 200;
+
+    spi #(
+        .CLK_FREQUENCY ( CLK_FREQUENCY ),
+        .SPI_FREQUENCY ( SPI_FREQUENCY ),
+        .IDLE_NS       ( IDLE_NS       )
+    ) spi_i (
+        .clk         ( clk ),
+        .reset_n     ( ~rst ),
+        .tx_request  (  ),
+        .tx_data     (  ),
+        .rx_request  (  ),
+        .rx_data     (  ),
+        .rx_valid    (  ),
+        .ack_request (  ),
+        .active      (  ),
+        .spi_csn     ( gpio[ 36+10 ] ),
+        .spi_mosi    ( gpio[ 36+11 ] ), 
+        .spi_miso    ( gpio[ 36+12 ] ),
+        .spi_clk     ( gpio[ 36+13 ] )
+    );
+
+    //------------------------------------------------------------------------
+    
     // assign sample = { sample_raw[23], sample_raw[ 0 +: 17] };
     assign sample = sample_raw;
 
     assign led[1] = ^ { sample_valid, sample };
+
+    //------------------------------------------------------------------------
+    // Logic Analyzer for I2S INMP441
+    //------------------------------------------------------------------------
 
     // logic_analyzer la_inst (
     //     .acq_clk        ( clk          ), // input
@@ -147,49 +176,49 @@ module common_top
     // );
 
     //------------------------------------------------------------------------
-    // SPI Logic Analyzer
+    // Logic Analyzer for SPI W5500
     //------------------------------------------------------------------------
 
-    (* keep *) logic spi_clk;
-    (* keep *) logic spi_cs_n;
-    (* keep *) logic spi_mosi;
-    (* keep *) logic spi_miso;
-    (* keep *) logic spi_int;
-    (* keep *) logic pll_clk_56mhz;
-    (* keep *) logic pll_clk_14mhz;
+    // (* keep *) logic spi_clk;
+    // (* keep *) logic spi_cs_n;
+    // (* keep *) logic spi_mosi;
+    // (* keep *) logic spi_miso;
+    // (* keep *) logic spi_int;
+    // (* keep *) logic pll_clk_56mhz;
+    // (* keep *) logic pll_clk_14mhz;
 
-    quartus_pll pll_inst (
-        .inclk0 ( clk           ),
-        .c0     ( pll_clk_56mhz ),
-        .c1     ( pll_clk_14mhz )
-    );
+    // quartus_pll pll_inst (
+    //     .inclk0 ( clk           ),
+    //     .c0     ( pll_clk_56mhz ),
+    //     .c1     ( pll_clk_14mhz )
+    // );
 
-    assign spi_clk  = gpio[27];
-    assign spi_cs_n = gpio[29];
-    assign spi_mosi = gpio[31];
-    assign spi_miso = gpio[33];
-    assign spi_int  = gpio[35];
+    // assign spi_clk  = gpio[27];
+    // assign spi_cs_n = gpio[29];
+    // assign spi_mosi = gpio[31];
+    // assign spi_miso = gpio[33];
+    // assign spi_int  = gpio[35];
 
-    logic [100:0] temp1, temp2, temp3;
+    // logic [100:0] temp1, temp2, temp3;
 
-    always_ff @( posedge clk )
-    begin
-        temp1 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
-    end
+    // always_ff @( posedge clk )
+    // begin
+    //     temp1 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
+    // end
     
-    always_ff @( posedge pll_clk_56mhz )
-    begin
-        temp2 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
-    end
+    // always_ff @( posedge pll_clk_56mhz )
+    // begin
+    //     temp2 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
+    // end
     
-    always_ff @( posedge pll_clk_14mhz )
-    begin
-        temp3 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
-    end
+    // always_ff @( posedge pll_clk_14mhz )
+    // begin
+    //     temp3 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
+    // end
 
-    assign led[4] = ^ { temp1, temp2, temp3 };
+    // assign led[4] = ^ { temp1, temp2, temp3 };
 
-    assign led[9] = sw[1];
+    // assign led[9] = sw[1];
 
     //------------------------------------------------------------------------
 

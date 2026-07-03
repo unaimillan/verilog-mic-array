@@ -116,7 +116,7 @@ void setup() {
   // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   
-  regData = MR_CMD_CLEAR;    
+  regData = MR_CMD_CLEAR; // maybe replace with MR_CMD_RESET (0x80)
   w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   

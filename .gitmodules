@@ -1,3 +1,6 @@
 [submodule "include/basics-graphics-music"]
 	path = include/basics-graphics-music
 	url = https://github.com/yuri-panchul/basics-graphics-music
+[submodule "include/de10lite-hdl"]
+	path = include/de10lite-hdl
+	url = https://github.com/hildebrandmw/de10lite-hdl
