@@ -1,0 +1,234 @@
+#include <Arduino.h>
+#include <SPI.h>
+
+// --- SPI Pins & Settings ---
+const int CS_PIN = 10; 
+const uint32_t SPI_SPEED = 14000000; // 14 MHz
+
+// --- W5500 Block Select Bits (BSB) ---
+#define W5500_BSB_COMMON       0x00
+#define W5500_BSB_S0           0x01
+#define W5500_BSB_S0_TX        0x02
+
+// --- W5500 SPI Control Modes ---
+#define W5500_SPI_READ         0x00
+#define W5500_SPI_WRITE        0x04
+
+// --- W5500 Common Registers ---
+#define W5500_MR               0x0000  // Mode Register
+#define W5500_GAR              0x0001  // Gateway Address Register
+#define W5500_SUBR             0x0005  // Subnet Mask Register
+#define W5500_SHAR             0x0009  // Source Hardware Address (MAC)
+#define W5500_SIPR             0x000F  // Source IP Address
+#define W5500_PHYCFGR          0x002E  // PHY Configuration Register
+#define W5500_VERSIONR         0x0039  // Chip Version Register
+
+// --- W5500 Common Register Commands/Bits ---
+#define MR_CMD_RESET           0x80
+#define MR_CMD_WOL             0x08
+#define MR_CMD_PING_BLK        0x10
+#define MR_CMD_CLEAR           0x00
+
+// --- W5500 Socket 0 Registers (Offsets) ---
+#define W5500_S_MR             0x0000  // Socket Mode
+#define W5500_S_CR             0x0001  // Socket Command
+#define W5500_S_IR             0x0002  // Socket Interrupt
+#define W5500_S_SR             0x0003  // Socket Status
+#define W5500_S_PORT           0x0004  // Socket Source Port
+#define W5500_S_DIPR           0x000C  // Socket Destination IP
+#define W5500_S_DPORT          0x0010  // Socket Destination Port
+#define W5500_S_TX_FSR         0x0020  // Socket TX Free Size
+#define W5500_S_TX_WR          0x0024  // Socket TX Write Pointer
+#define W5500_S_TX_RD          0x0028  // Socket TX Read Pointer
+
+// --- Socket Commands & Modes ---
+#define S_MR_MODE_UDP          0x02  // UDP Mode setting
+#define S_CR_CMD_OPEN          0x01  // OPEN command
+#define S_CR_CMD_SEND          0x20  // SEND command
+#define S_IR_INT_SENDOK        0x10  // SEND_OK interrupt flag
+#define S_IR_CLR_ALL           0xFF  // Clear all interrupts code
+
+// --- Network Configuration Values ---
+const uint8_t CONF_MAC[]      = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+const uint8_t CONF_SRC_IP[]   = {192, 168, 1, 10};
+const uint8_t CONF_NETMASK[]  = {255, 255, 255, 0};
+const uint8_t CONF_GATEWAY[]  = {255, 255, 255, 0}; 
+const uint16_t CONF_SRC_PORT  = 8880; // 0x22B0
+
+const uint8_t CONF_DST_IP[]   = {192, 168, 1, 100};
+const uint16_t CONF_DST_PORT = 8888; // 0x22B8
+
+// --- Core Driver Helper Functions ---
+
+void w5500_write(uint16_t addr, uint8_t bsb, const uint8_t *buf, uint16_t len) {
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(addr >> 8);
+  SPI.transfer(addr & 0xFF);
+  SPI.transfer((bsb << 3) | W5500_SPI_WRITE);
+  for (uint16_t i = 0; i < len; i++) {
+    SPI.transfer(buf[i]);
+  }
+  digitalWrite(CS_PIN, HIGH);
+}
+
+void w5500_read(uint16_t addr, uint8_t bsb, uint8_t *buf, uint16_t len) {
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(addr >> 8);
+  SPI.transfer(addr & 0xFF);
+  SPI.transfer((bsb << 3) | W5500_SPI_READ);
+  for (uint16_t i = 0; i < len; i++) {
+    buf[i] = SPI.transfer(0x00);
+  }
+  digitalWrite(CS_PIN, HIGH);
+}
+
+// --- Arduino Lifecycle Functions ---
+
+void setup() {
+  pinMode(CS_PIN, OUTPUT);
+  digitalWrite(CS_PIN, HIGH);
+  
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(SPI_SPEED, MSBFIRST, SPI_MODE0));
+
+  uint8_t regData;
+  uint8_t buffer2Byte[2];
+  uint8_t buffer4Byte[4];
+  
+  // --- Initialization Handshake Sequence ---
+  // regData = MR_CMD_RESET;
+  // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  
+  // regData = MR_CMD_WOL;      
+  // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  
+  // regData = MR_CMD_RESET;    
+  // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  
+  // regData = MR_CMD_WOL;      
+  // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  
+  // regData = MR_CMD_PING_BLK; 
+  // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  
+  regData = MR_CMD_CLEAR;    
+  w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
+  
+  // Hardware Verification Pass
+  w5500_read(W5500_VERSIONR, W5500_BSB_COMMON, &regData, 1);
+
+  // Serial.begin(1000000);
+  // while (!Serial) { ; }   // wait for serial monitor (optional)
+  // Serial.print("HW Ver:");
+  // Serial.print(regData);
+  // Serial.println();
+
+  // Network Addressing Configuration Setup
+  w5500_write(W5500_SHAR, W5500_BSB_COMMON, CONF_MAC, 6);
+  w5500_write(W5500_SIPR, W5500_BSB_COMMON, CONF_SRC_IP, 4);
+  w5500_write(W5500_GAR,  W5500_BSB_COMMON, CONF_GATEWAY, 4);
+  w5500_write(W5500_SUBR, W5500_BSB_COMMON, CONF_NETMASK, 4);
+
+  // Socket 0 Setup Phase
+  // w5500_read(W5500_S_SR, W5500_BSB_S0, &regData, 1);
+  
+  regData = S_MR_MODE_UDP; 
+  w5500_write(W5500_S_MR, W5500_BSB_S0, &regData, 1);
+  
+  // regData = S_IR_CLR_ALL;  
+  // w5500_write(W5500_S_IR, W5500_BSB_S0, &regData, 1);
+  
+  buffer2Byte[0] = CONF_SRC_PORT >> 8;
+  buffer2Byte[1] = CONF_SRC_PORT & 0xFF;
+  w5500_write(W5500_S_PORT, W5500_BSB_S0, buffer2Byte, 2);
+
+  // Command execution: Open Socket
+  regData = S_CR_CMD_OPEN; 
+  w5500_write(W5500_S_CR, W5500_BSB_S0, &regData, 1);
+  
+  // Block until command registers as acknowledged/executed
+  // do {
+  //   w5500_read(W5500_S_CR, W5500_BSB_S0, &regData, 1);
+  // } while (regData != 0x00);
+
+  // Post-open structural state verification logs
+  // w5500_read(W5500_S_TX_RD, W5500_BSB_S0, buffer2Byte, 2);
+  // w5500_read(W5500_SIPR,    W5500_BSB_COMMON, buffer4Byte, 4);
+  // w5500_read(W5500_PHYCFGR, W5500_BSB_COMMON, &regData, 1);
+
+  // 1. Establish Remote Target Metrics
+  w5500_write(W5500_S_DIPR, W5500_BSB_S0, CONF_DST_IP, 4);
+  
+  uint8_t pointerData[2];
+  pointerData[0] = CONF_DST_PORT >> 8;
+  pointerData[1] = CONF_DST_PORT & 0xFF;
+  w5500_write(W5500_S_DPORT, W5500_BSB_S0, pointerData, 2);
+}
+
+void loop() {
+  uint8_t regData;
+  uint8_t pointerData[2];
+  
+  // 2. Poll TX Free Buffer Size Requirements 
+  // w5500_read(W5500_S_TX_FSR, W5500_BSB_S0, pointerData, 2);
+  // w5500_read(W5500_S_TX_FSR, W5500_BSB_S0, pointerData, 2);
+
+  // 3. Extract the Active Write Pointer Target 
+  w5500_read(W5500_S_TX_WR, W5500_BSB_S0, pointerData, 2);
+  uint16_t tx_offset = (pointerData[0] << 8) | pointerData[1];
+
+  const uint32_t DATA_CH_CNT = 32;
+
+  // 4. Map and Pipe Out Byte Stream to the W5500 Hardware Memory Block
+  uint8_t payload[DATA_CH_CNT];
+  char hello[] = "hello";
+  char world[] = "world!";
+
+  static uint8_t byteCounter = 2; // Incremental value tracker matching the data logs
+  for(u32 i = 0; i < DATA_CH_CNT; i++) {
+    if ( i < sizeof(hello)) {
+      payload[i] = hello[i];
+    } else if (i >= DATA_CH_CNT - sizeof(world)){
+      payload[i] = world[sizeof(world) - (DATA_CH_CNT - i)];
+    }
+    else {
+      payload[i] = byteCounter++;
+    }
+  }
+  
+  // Send data directly to the TX buffer layout block
+  w5500_write(tx_offset, W5500_BSB_S0_TX, payload, DATA_CH_CNT);
+
+  // 5. Shift the Write Pointer ahead by the payload length size
+  tx_offset += DATA_CH_CNT;
+  pointerData[0] = tx_offset >> 8;
+  pointerData[1] = tx_offset & 0xFF;
+  w5500_write(W5500_S_TX_WR, W5500_BSB_S0, pointerData, 2);
+
+  // 6. Command Execution: Transmit Packet Frame
+  regData = S_CR_CMD_SEND; 
+  w5500_write(W5500_S_CR, W5500_BSB_S0, &regData, 1);
+
+  // 7. Await Execution Frame Completion state
+  // do {
+  //   w5500_read(W5500_S_CR, W5500_BSB_S0, &regData, 1);
+  // } while (regData != 0x00);
+
+  // // 8. Confirm Successful Frame dispatch and Clear Down Interrupt Lines
+  // w5500_read(W5500_S_IR, W5500_BSB_S0, &regData, 1);
+  
+  // regData = S_IR_INT_SENDOK; 
+  // w5500_write(W5500_S_IR, W5500_BSB_S0, &regData, 1);
+
+  delay(500); // Wait 1 second between transmissions
+  
+  // if (random(1, 1000) == 50) {
+  //   delay(1000);
+  // }
+}
