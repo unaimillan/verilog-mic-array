@@ -127,7 +127,7 @@ void loop() {
   {
     // if (random(1, 4) == 1)
     {
-      delay(500);
+      // delay(500);
       // Optional debug output to Serial
       Serial.print("Sent: ");
       for (u32 i = 0; i < DATA_N; i++) {
@@ -138,7 +138,7 @@ void loop() {
     }
 
     // Wait before next send (adjust as needed)
-    delay(1000);
+    delay(100);
   }
 }
 

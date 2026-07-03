@@ -146,4 +146,51 @@ module common_top
     //     .probe  ( sample_cnt )
     // );
 
+    //------------------------------------------------------------------------
+    // SPI Logic Analyzer
+    //------------------------------------------------------------------------
+
+    (* keep *) logic spi_clk;
+    (* keep *) logic spi_cs_n;
+    (* keep *) logic spi_mosi;
+    (* keep *) logic spi_miso;
+    (* keep *) logic spi_int;
+    (* keep *) logic pll_clk_56mhz;
+    (* keep *) logic pll_clk_14mhz;
+
+    quartus_pll pll_inst (
+        .inclk0 ( clk           ),
+        .c0     ( pll_clk_56mhz ),
+        .c1     ( pll_clk_14mhz )
+    );
+
+    assign spi_clk  = gpio[27];
+    assign spi_cs_n = gpio[29];
+    assign spi_mosi = gpio[31];
+    assign spi_miso = gpio[33];
+    assign spi_int  = gpio[35];
+
+    logic [100:0] temp1, temp2, temp3;
+
+    always_ff @( posedge clk )
+    begin
+        temp1 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
+    end
+    
+    always_ff @( posedge pll_clk_56mhz )
+    begin
+        temp2 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
+    end
+    
+    always_ff @( posedge pll_clk_14mhz )
+    begin
+        temp3 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
+    end
+
+    assign led[4] = ^ { temp1, temp2, temp3 };
+
+    assign led[9] = sw[1];
+
+    //------------------------------------------------------------------------
+
 endmodule

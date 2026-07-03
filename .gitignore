@@ -3,6 +3,7 @@
 
 /synth/**/db/
 /synth/**/incremental_db/
+/synth/**/greybox_tmp/
 /synth/**/output_files/
 /synth/**/output_files*/
 /synth/**/*.bak

@@ -96,7 +96,7 @@ verilator-clean:
 # ------------------------------------------------------------------------------
 
 CABLE_NAME   ?= "USB-Blaster"
-PROJECT_DIR  ?= ./synth/zeowaa
+PROJECT_DIR  ?= ./synth/de10_lite
 PROJECT_NAME ?= "board_specific"
 
 QUARTUS     := cd $(PROJECT_DIR) && quartus
