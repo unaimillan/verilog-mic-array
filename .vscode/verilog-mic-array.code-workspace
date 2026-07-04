@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "arduino-uno-w5500",
+			"path": "../mcu-benchmark/arduino-uno-w5500"
+		}
+	],
+	"settings": {}
+}
