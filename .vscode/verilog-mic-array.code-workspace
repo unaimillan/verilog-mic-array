@@ -4,8 +4,8 @@
 			"path": ".."
 		},
 		{
-			"name": "arduino-uno-w5500",
-			"path": "../mcu-benchmark/arduino-uno-w5500"
+			"name": "pio-arduino-uno-w5500",
+			"path": "../mcu-experiments/pio-arduino-uno-w5500"
 		}
 	],
 	"settings": {}
