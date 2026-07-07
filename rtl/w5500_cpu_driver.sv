@@ -1,6 +1,6 @@
 module w5500_cpu_driver
 # (
-    parameter DATA_W = 32;
+    parameter DATA_W = 32
 )
 (
     input                  clk,
