@@ -7,28 +7,28 @@ module w5500_axi_over_spi
     // AXI-like control and data interface
     // ---------------------------------
 
-    // input         awvalid,
-    // output        awready,
-    // input  [31:0] awaddr,
-    // input  [ 7:0] awlen, // Cound be used instead of wlast
+    input  logic        awvalid,
+    output logic        awready,
+    input  logic [31:0] awaddr,
+    input  logic [ 7:0] awlen,
 
-    // input         wvalid,
-    // output        wready,
-    // input  [ 7:0] wdata,
-    // input         wlast,
+    input  logic        wvalid,
+    output logic        wready,
+    input  logic [ 7:0] wdata,
+    input  logic        wlast,
 
-    // output        bvalid,
-    // input         bready,
+    output logic        bvalid,
+    input  logic        bready,
 
-    input         arvalid,
-    output        arready,
-    input  [31:0] araddr,
-    // input  [ 7:0] arlen,
+    input  logic        arvalid,
+    output logic        arready,
+    input  logic [31:0] araddr,
+    input  logic [ 7:0] arlen,
 
-    output        rvalid,
-    input         rready,
-    output [ 7:0] rdata,
-    output        rlast,
+    output logic        rvalid,
+    input  logic        rready,
+    output logic [ 7:0] rdata,
+    output logic        rlast,
 
     // ---------------------------------
     // External SPI interface
@@ -44,24 +44,24 @@ module w5500_axi_over_spi
 
     typedef enum logic [3:0] {
         ST_IDLE          = 4'd0,
-        ST_PROCESS_REQ,
         ST_SPI_SEND_ADDR,
         ST_SPI_READ_DATA,
         ST_SEND_RESP
-        
     } state_t;
 
     state_t state, next_state;
 
-    logic       spi_addr_transfer_active;
-    logic       spi_addr_transfer_done;
-    logic [1:0] spi_addr_ptr;
+    logic spi_addr_transfer_active;
+    logic spi_addr_transfer_done;
 
     logic spi_read_transfer_active;
     logic spi_read_transfer_done;
 
-    logic result_read_transfer_active;
-    logic result_read_transfer_done;
+    logic response_read_transfer_active;
+    logic response_read_transfer_done;
+    
+    // logic [31:0][7:0] spi_write_mem;
+    // logic       [4:0] spi_write_ptr;
 
     // -------------------------------------------------------------------------
 
@@ -81,28 +81,32 @@ module w5500_axi_over_spi
     logic        spi_req_rwb;          // read - 0, write - 1
     logic [ 1:0] spi_req_mode;         // variable by SCSn - 00, 1 byte - 01, 2 byte - 10, 4 byte - 11
 
+    assign spi_req_block_select = araddr[ 16 +: 5] | awaddr[ 16 +: 5];
+    assign spi_req_rwb          = ( ~ arvalid ) & awvalid;
+    assign spi_req_mode         = 2'b00;
+
     assign spi_req_control = { spi_req_block_select, spi_req_rwb, spi_req_mode };
 
-    logic [2:0][7:0] spi_req_addr_data;
-
-    assign spi_req_addr_data = { spi_req_addr, spi_req_control};
+    assign spi_req_addr = araddr[ 0 +: 16] | awaddr[ 0 +: 16];
 
     // -------------------------------------------------------------------------
 
     always_comb begin
         next_state = state;
-        spi_addr_transfer_active    = '0;
-        spi_read_transfer_active    = '0;
-        result_read_transfer_active = '0;
+        spi_addr_transfer_active      = '0;
+        spi_read_transfer_active      = '0;
+        response_read_transfer_active = '0;
 
-        if ( state == ST_IDLE )
+        case (state)
+
+        ST_IDLE:
         begin
             if ( arvalid )
             begin
                 next_state = ST_SPI_SEND_ADDR;
             end
         end
-        else if ( state == ST_SPI_SEND_ADDR )
+        ST_SPI_SEND_ADDR:
         begin
             spi_addr_transfer_active = '1;
 
@@ -111,7 +115,7 @@ module w5500_axi_over_spi
                 next_state = ST_SPI_READ_DATA;
             end
         end
-        else if ( state == ST_SPI_READ_DATA )
+        ST_SPI_READ_DATA:
         begin
             spi_read_transfer_active = '1;
 
@@ -120,18 +124,24 @@ module w5500_axi_over_spi
                 next_state = ST_SEND_RESP;
             end
         end
-        else if ( state == ST_SEND_RESP )
+        ST_SEND_RESP:
         begin
-            result_read_transfer_active = '1;
+            response_read_transfer_active = '1;
 
-            if ( result_read_transfer_done )
+            if ( response_read_transfer_done )
             begin
                 next_state = ST_IDLE;
             end
         end
+        
+        default: begin end
+        endcase
     end
 
     // -------------------------------------------------------------------------
+
+    logic [2:0][7:0] spi_req_addr_mem;
+    logic      [1:0] spi_addr_ptr;
 
     always_ff @( posedge clk )
     begin
@@ -145,7 +155,7 @@ module w5500_axi_over_spi
             begin
                 spi_addr_ptr <= '0;
             end
-            else if ( spi_addr_transfer_active )
+            else if ( spi_addr_transfer_active & spi_ack_request )
             begin
                 spi_addr_ptr <= spi_addr_ptr + 1'b1;
             end 
@@ -154,15 +164,69 @@ module w5500_axi_over_spi
 
     assign spi_addr_transfer_done = ( spi_addr_ptr == 2'b10 ) & spi_ack_request;
 
+    always_ff @( posedge clk ) begin
+        if ( arvalid ) // | awvalid
+            spi_req_addr_mem <= { spi_req_addr, spi_req_control};
+    end
+
+    // -------------------------------------------------------------------------
+
+    logic [31:0][7:0] spi_read_mem;
+    logic       [4:0] spi_read_ptr;
+
+    assign spi_read_transfer_done = ( spi_read_ptr == arlen ) & spi_ack_request;
+
+    always_ff @( posedge clk )
+    begin
+        if ( rst )
+        begin
+            spi_read_ptr <= 0;
+        end
+        else if ( spi_ack_request )
+        begin
+            if ( spi_read_transfer_done )
+            begin
+                spi_read_ptr <= '0;
+            end
+            else if ( ( spi_read_transfer_active & spi_rx_valid ) | ( response_read_transfer_active & rready ) )
+            begin
+                spi_read_ptr <= spi_read_ptr + 1'b1;
+            end 
+        end
+    end
+
+    assign response_read_transfer_done = ( spi_read_ptr == arlen ) & rready;
+
+    always_ff @( posedge clk )
+    begin
+        if ( spi_read_transfer_active & spi_rx_valid )
+            spi_read_mem[spi_read_ptr] <= spi_rx_data;
+        else if ( response_read_transfer_active )
+            rdata <= spi_read_mem[spi_read_ptr];
+    end
+
+    always_ff @( posedge clk)
+    begin
+        rvalid <= response_read_transfer_active;
+        rlast  <= response_read_transfer_done;
+    end
+
+    // -------------------------------------------------------------------------
+
     always_comb
     begin
         spi_tx_request = '0;
         spi_tx_data    = '0;
+        spi_rx_request = '0;
 
         if ( spi_addr_transfer_active )
         begin
             spi_tx_request = '1;
-            spi_tx_data = spi_req_addr_data[spi_addr_ptr];
+            spi_tx_data = spi_req_addr_mem[spi_addr_ptr];
+        end
+        else if ( spi_read_transfer_active ) // & ( ~ spi_read_transfer_done )
+        begin
+            spi_rx_request = '1;
         end
     end
 
