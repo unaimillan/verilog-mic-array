@@ -91,16 +91,32 @@ module w5500_axi_over_spi
 
     // -------------------------------------------------------------------------
 
+    logic [ 7:0] arlen_r;
+    
+    always_ff @( posedge clk )
+    begin
+        if ( arvalid )
+            arlen_r <= arlen;
+    end
+
+    // -------------------------------------------------------------------------
+
     always_comb begin
         next_state = state;
         spi_addr_transfer_active      = '0;
         spi_read_transfer_active      = '0;
         response_read_transfer_active = '0;
 
-        case (state)
+        arready = 1'b0;
+        // awready = 1'b0;
 
+        case (state)
         ST_IDLE:
         begin
+            arready = ~ arvalid;
+            // arready = 1'b1;
+            // awready = 1'b1;
+
             if ( arvalid )
             begin
                 next_state = ST_SPI_SEND_ADDR;
@@ -140,61 +156,58 @@ module w5500_axi_over_spi
 
     // -------------------------------------------------------------------------
 
-    logic [2:0][7:0] spi_req_addr_mem;
+    logic            spi_addr_ptr_last;
     logic      [1:0] spi_addr_ptr;
+    logic [2:0][7:0] spi_addr_mem;
+
+    counter_timer
+    #(
+        .COUNT_DOWN ( 1'b1 ),
+        .MAX_VALUE  ( 2    )
+    ) 
+    spi_addr_mem_ptr_inst
+    (
+        .clk          ( clk                                        ),
+        .rst          ( rst                                        ),
+        .start        (                                            ), // input
+        .tick_valid   ( spi_addr_transfer_active & spi_ack_request ), // input
+        .finished     ( spi_addr_ptr_last                          ), // output logic
+        .counter      ( spi_addr_ptr                               ), // output logic [CNT_W-1:0]
+        .counter_next (                                            )  // output logic [CNT_W-1:0]
+    );
+
+    assign spi_addr_transfer_done = spi_addr_ptr_last & spi_ack_request;
 
     always_ff @( posedge clk )
     begin
-        if ( rst )
-        begin
-            spi_addr_ptr <= 0;
-        end
-        else if ( spi_ack_request )
-        begin
-            if ( spi_addr_transfer_done )
-            begin
-                spi_addr_ptr <= '0;
-            end
-            else if ( spi_addr_transfer_active & spi_ack_request )
-            begin
-                spi_addr_ptr <= spi_addr_ptr + 1'b1;
-            end 
-        end
-    end
-
-    assign spi_addr_transfer_done = ( spi_addr_ptr == 2'b10 ) & spi_ack_request;
-
-    always_ff @( posedge clk ) begin
         if ( arvalid ) // | awvalid
-            spi_req_addr_mem <= { spi_req_addr, spi_req_control};
+            spi_addr_mem <= { spi_req_addr, spi_req_control};
     end
 
     // -------------------------------------------------------------------------
 
-    logic [31:0][7:0] spi_read_mem;
-    logic       [4:0] spi_read_ptr;
+    logic             read_mem_last;
+    logic       [4:0] read_mem_ptr;
+    logic [31:0][7:0] read_mem;
 
-    assign spi_read_transfer_done = ( spi_read_ptr == arlen ) & spi_ack_request;
+    counter_timer
+    #(
+        .COUNT_DOWN ( 1'b0 ),
+        .MAX_VALUE  ( 32   )
+    )
+    read_mem_ptr_inst
+    (
+        .clk             ( clk                                                                                       ), // input
+        .rst             ( rst                                                                                       ), // input
+        .soft_rst        ( spi_read_transfer_done                                                                    ), // input
+        .start           (                                                                                           ), // input
+        .tick_valid      ( ( spi_read_transfer_active & spi_rx_valid ) | ( response_read_transfer_active & rready )  ), // input
+        .finished        (                                                                                           ), // output logic
+        .counter         (                                                                                           ), // output logic [CNT_W-1:0]
+        .counter_next    (                                                                                           )  // output logic [CNT_W-1:0]
+    );
 
-    always_ff @( posedge clk )
-    begin
-        if ( rst )
-        begin
-            spi_read_ptr <= 0;
-        end
-        else if ( spi_ack_request )
-        begin
-            if ( spi_read_transfer_done )
-            begin
-                spi_read_ptr <= '0;
-            end
-            else if ( ( spi_read_transfer_active & spi_rx_valid ) | ( response_read_transfer_active & rready ) )
-            begin
-                spi_read_ptr <= spi_read_ptr + 1'b1;
-            end 
-        end
-    end
-
+    assign spi_read_transfer_done = ( read_mem_ptr_next == arlen_r ) & spi_rx_valid;
     assign response_read_transfer_done = ( spi_read_ptr == arlen ) & rready;
 
     always_ff @( posedge clk )
@@ -219,10 +232,10 @@ module w5500_axi_over_spi
         spi_tx_data    = '0;
         spi_rx_request = '0;
 
-        if ( spi_addr_transfer_active )
+        if ( spi_addr_transfer_active & ( ~ spi_addr_transfer_done ) )
         begin
             spi_tx_request = '1;
-            spi_tx_data = spi_req_addr_mem[spi_addr_ptr];
+            spi_tx_data = spi_addr_mem[spi_addr_ptr];
         end
         else if ( spi_read_transfer_active ) // & ( ~ spi_read_transfer_done )
         begin
