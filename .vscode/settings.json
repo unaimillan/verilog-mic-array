@@ -1,0 +1,9 @@
+{
+    "verilog.linting.linter": "verilator",
+    "verilog.linting.slang.includePath": [
+        "./rtl/",
+    ],
+    "verilog.linting.verilator.includePath": [
+        "./rtl/"
+    ],
+}

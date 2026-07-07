@@ -1,0 +1,6 @@
+{
+  "$schema": "https://schemastore.org",
+  "includePaths": [
+    "rtl"
+  ]
+}
