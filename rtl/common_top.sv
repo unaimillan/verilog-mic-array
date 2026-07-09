@@ -125,25 +125,50 @@ module common_top
     localparam SPI_FREQUENCY = 2_000_000;
     localparam IDLE_NS = 200;
 
-    spi #(
-        .CLK_FREQUENCY ( CLK_FREQUENCY ),
-        .SPI_FREQUENCY ( SPI_FREQUENCY ),
-        .IDLE_NS       ( IDLE_NS       )
-    ) spi_i (
-        .clk         ( clk ),
-        .reset_n     ( ~rst ),
-        .tx_request  (  ),
-        .tx_data     (  ),
-        .rx_request  (  ),
-        .rx_data     (  ),
-        .rx_valid    (  ),
-        .ack_request (  ),
-        .active      (  ),
-        .spi_csn     ( gpio[ 36+10 ] ),
-        .spi_mosi    ( gpio[ 36+11 ] ), 
-        .spi_miso    ( gpio[ 36+12 ] ),
-        .spi_clk     ( gpio[ 36+13 ] )
+    // spi #(
+    //     .CLK_FREQUENCY ( CLK_FREQUENCY ),
+    //     .SPI_FREQUENCY ( SPI_FREQUENCY ),
+    //     .IDLE_NS       ( IDLE_NS       )
+    // ) spi_i (
+    //     .clk         ( clk ),
+    //     .reset_n     ( ~rst ),
+    //     .tx_request  (  ),
+    //     .tx_data     (  ),
+    //     .rx_request  (  ),
+    //     .rx_data     (  ),
+    //     .rx_valid    (  ),
+    //     .ack_request (  ),
+    //     .active      (  ),
+    //     .spi_csn     ( gpio[ 36+10 ] ),
+    //     .spi_mosi    ( gpio[ 36+11 ] ), 
+    //     .spi_miso    ( gpio[ 36+12 ] ),
+    //     .spi_clk     ( gpio[ 36+13 ] )
+    // );
+
+    logic             ether_valid;
+    logic             ether_ready;
+    logic [31:0][7:0] ether_data;
+
+    w5500_cpu_driver
+    # (
+        .DATA_W ( 32 )
+    )
+    w5500_adapter_inst
+    (
+        .clk      (    ),
+        .rst      (    ),
+
+        .in_valid (    ),
+        .in_ready ( ether_ready   ),
+        .in_data  (    ),
+
+        .spi_cs_n ( gpio[ 36+10 ] ),
+        .spi_mosi ( gpio[ 36+11 ] ),
+        .spi_miso ( gpio[ 36+12 ] ),
+        .spi_clk  ( gpio[ 36+13 ] )
     );
+
+    assign led[5] = ether_ready;
 
     //------------------------------------------------------------------------
     
@@ -179,32 +204,32 @@ module common_top
     // Logic Analyzer for SPI W5500
     //------------------------------------------------------------------------
 
-    // (* keep *) logic spi_clk;
-    // (* keep *) logic spi_cs_n;
-    // (* keep *) logic spi_mosi;
-    // (* keep *) logic spi_miso;
-    // (* keep *) logic spi_int;
-    // (* keep *) logic pll_clk_56mhz;
-    // (* keep *) logic pll_clk_14mhz;
+    (* keep *) logic spi_clk;
+    (* keep *) logic spi_cs_n;
+    (* keep *) logic spi_mosi;
+    (* keep *) logic spi_miso;
+    (* keep *) logic spi_int;
+    (* keep *) logic pll_clk_56mhz;
+    (* keep *) logic pll_clk_14mhz;
 
-    // quartus_pll pll_inst (
-    //     .inclk0 ( clk           ),
-    //     .c0     ( pll_clk_56mhz ),
-    //     .c1     ( pll_clk_14mhz )
-    // );
+    quartus_pll pll_inst (
+        .inclk0 ( clk           ),
+        .c0     ( pll_clk_56mhz ),
+        .c1     ( pll_clk_14mhz )
+    );
 
-    // assign spi_clk  = gpio[27];
-    // assign spi_cs_n = gpio[29];
-    // assign spi_mosi = gpio[31];
-    // assign spi_miso = gpio[33];
-    // assign spi_int  = gpio[35];
+    assign spi_cs_n = gpio[ 36+10 ];
+    assign spi_mosi = gpio[ 36+11 ];
+    assign spi_miso = gpio[ 36+12 ];
+    assign spi_clk  = gpio[ 36+13 ];
+    assign spi_int  = '0 ;
 
-    // logic [100:0] temp1, temp2, temp3;
+    logic [100:0] temp1, temp2, temp3;
 
-    // always_ff @( posedge clk )
-    // begin
-    //     temp1 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
-    // end
+    always_ff @( posedge clk )
+    begin
+        temp1 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
+    end
     
     // always_ff @( posedge pll_clk_56mhz )
     // begin
@@ -216,9 +241,9 @@ module common_top
     //     temp3 <= { spi_clk, spi_cs_n, spi_mosi, spi_miso, spi_int };
     // end
 
-    // assign led[4] = ^ { temp1, temp2, temp3 };
+    assign led[4] = ^ { temp1, temp2, temp3 };
 
-    // assign led[9] = sw[1];
+    assign led[9] = sw[1];
 
     //------------------------------------------------------------------------
 

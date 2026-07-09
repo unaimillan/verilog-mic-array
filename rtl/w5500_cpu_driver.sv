@@ -30,11 +30,12 @@ module w5500_cpu_driver
     assign debug_ar_block_select = 5'h0;
     assign debug_ar_offset_addr  = 16'h0039;
 
-    logic       debug_arready;
-    logic       debug_rvalid;
-    logic [7:0] debug_rdata;
-    logic       debug_rlast;
+    (* keep *) logic       debug_arready;
+    (* keep *) logic       debug_rvalid;
+    (* keep *) logic [7:0] debug_rdata;
+    (* keep *) logic       debug_rlast;
 
+    assign in_ready = ^ { debug_arready, debug_rvalid, debug_rdata, debug_rlast };
 
     w5500_axi_over_spi w5500_driver_inst
     (
