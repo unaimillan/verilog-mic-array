@@ -149,7 +149,7 @@ module common_top
     logic             ether_ready;
     logic [31:0][7:0] ether_data;
 
-    w5500_cpu_driver
+    w5500_ucpu_driver
     # (
         .DATA_W ( 32 )
     )

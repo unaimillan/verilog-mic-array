@@ -1,4 +1,7 @@
-module w5500_cpu_driver
+// µCPU (micro cpu) module for driving communication with W5500 Lite module
+// using the SPI interface
+
+module w5500_ucpu_driver
 # (
     parameter DATA_W = 32
 )
@@ -30,10 +33,30 @@ module w5500_cpu_driver
     assign debug_ar_block_select = 5'h0;
     assign debug_ar_offset_addr  = 16'h0039;
 
+               logic       debug_arvalid;
     (* keep *) logic       debug_arready;
     (* keep *) logic       debug_rvalid;
     (* keep *) logic [7:0] debug_rdata;
     (* keep *) logic       debug_rlast;
+
+
+    // initial
+    // begin
+    //     @ (negedge rst);
+        
+    //     repeat (100) @ (posedge clk);
+
+    //     debug_arvalid = 1'b1;
+
+    //     repeat (100) @ (posedge clk);
+
+    //     repeat (5)
+    //     begin
+    //         debug_arvalid = ~ debug_arvalid;
+    //         repeat (1000) @ (posedge clk);
+    //     end
+    // end
+
 
     assign in_ready = ^ { debug_arready, debug_rvalid, debug_rdata, debug_rlast };
 
@@ -54,7 +77,7 @@ module w5500_cpu_driver
         .bvalid          (                       ), // output logic
         .bready          (                       ), // input  logic
 
-        .arvalid         ( 1'b1                  ), // input  logic
+        .arvalid         ( debug_arvalid         ), // input  logic
         .arready         ( debug_arready         ), // output logic
         .ar_block_select ( debug_ar_block_select ), // input  logic [ 4:0]
         .ar_offset_addr  ( debug_ar_offset_addr  ), // input  logic [15:0]
