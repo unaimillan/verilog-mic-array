@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=2.5.0",
     "pandas>=3.0.4",
     "plotly>=6.8.0",
+    "pyvcd>=0.4.1",
     "scipy>=1.18.0",
 ]
 
