@@ -121,13 +121,22 @@ void setup() {
   w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   
   // Hardware Verification Pass
-  w5500_read(W5500_VERSIONR, W5500_BSB_COMMON, &regData, 1);
+  
+  Serial.begin(1000000);
+  while (!Serial) { ; }   // wait for serial monitor (optional)
+  
+  // while (true) 
+  {
+    w5500_read(W5500_VERSIONR, W5500_BSB_COMMON, &regData, 1);
 
-  // Serial.begin(1000000);
-  // while (!Serial) { ; }   // wait for serial monitor (optional)
-  // Serial.print("HW Ver:");
-  // Serial.print(regData);
-  // Serial.println();
+    Serial.print("HW Ver: ");
+    Serial.print(regData);
+    Serial.println();
+
+    delay(1000);
+  }
+
+  // Serial.println("Exit idle");
 
   // Network Addressing Configuration Setup
   w5500_write(W5500_SHAR, W5500_BSB_COMMON, CONF_MAC, 6);
