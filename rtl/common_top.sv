@@ -145,9 +145,13 @@ module common_top
     //     .spi_clk     ( gpio[ 36+13 ] )
     // );
 
-    logic             ether_valid;
-    logic             ether_ready;
-    logic [31:0][7:0] ether_data;
+    logic             eth_valid;
+    logic             eth_ready;
+    logic [31:0][7:0] eth_data;
+
+    // assign eth_strobe = cnt == 10_000_000;
+
+    assign eth_valid = sw[0];
 
     w5500_ucpu_driver
     # (
@@ -155,12 +159,14 @@ module common_top
     )
     w5500_adapter_inst
     (
-        .clk      (    ),
-        .rst      (    ),
+        .clk      ( clk ),
+        .rst      ( rst ),
 
-        .in_valid (    ),
-        .in_ready ( ether_ready   ),
+        .in_valid ( eth_valid ),
+        .in_ready ( eth_ready ),
         .in_data  (    ),
+
+        .out_data ( abcdefgh ),
 
         .spi_cs_n ( gpio[ 36+10 ] ),
         .spi_mosi ( gpio[ 36+11 ] ),
@@ -168,7 +174,11 @@ module common_top
         .spi_clk  ( gpio[ 36+13 ] )
     );
 
-    assign led[5] = ether_ready;
+    // GPIO 36 pins, 0 to 35; ARDUINO pins
+
+    assign led[5] = eth_ready & sw[2];
+
+    assign digit = 8'd1;
 
     //------------------------------------------------------------------------
     
