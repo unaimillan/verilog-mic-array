@@ -149,9 +149,33 @@ module common_top
     logic             eth_ready;
     logic [31:0][7:0] eth_data;
 
-    // assign eth_strobe = cnt == 10_000_000;
+    logic [63:0] eth_counter, eth_counter_next;
 
-    assign eth_valid = sw[0];
+    counter_timer
+    #(
+        .MAX_VALUE ( 100_000_000 )
+    ) 
+    cnt_inst
+    (
+        .clk          ( clk                ), // input
+        .rst          ( rst                ), // input
+        .soft_rst     (                 ), // input
+        .start        (                 ), // input
+        .tick_valid   ( '1                ), // input
+        .finished     (                 ), // output logic
+        .counter      ( eth_counter                ), // output logic [CNT_W-1:0]
+        .counter_next ( eth_counter_next                )  // output logic [CNT_W-1:0]
+    );
+
+    localparam int BIT_N = 13;
+    logic eth_strobe;
+
+    assign eth_strobe = { eth_counter[BIT_N], eth_counter_next[BIT_N] } == 2'b10;
+
+    assign led[6] = eth_counter[BIT_N];
+    assign led[7] = eth_strobe;
+    assign eth_valid = sw[5] & (eth_strobe | sw[6]);
+    assign led[8] = gpio[ 36 + 10 ];
 
     w5500_ucpu_driver
     # (

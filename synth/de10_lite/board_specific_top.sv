@@ -46,7 +46,7 @@ module board_specific_top
 
     inout  [ w_gpio    - 1:0] GPIO,
 
-    output                    ARDUINO_RESET_N,
+    inout                     ARDUINO_RESET_N,
     inout  [ w_arduino - 1:0] ARDUINO_IO
 );
 
@@ -57,9 +57,12 @@ module board_specific_top
     //------------------------------------------------------------------------
 
     wire clk = MAX10_CLK1_50;
-    wire rst = SW [w_sw - 1];
+    wire rst;
+    
+    // assign rst = SW [w_sw - 1];
+    // assign ARDUINO_RESET_N = ~ rst;
 
-    assign ARDUINO_RESET_N = ~ rst;
+    assign rst = SW [w_sw - 1] | ( ~ ARDUINO_RESET_N );
 
     // Keys, switches, LEDs
 
