@@ -3,7 +3,8 @@
 
 // --- SPI Pins & Settings ---
 const int CS_PIN = 10; 
-const uint32_t SPI_SPEED = 14000000; // 14 MHz
+// const uint32_t SPI_SPEED = 14000000; // 14 MHz
+const uint32_t SPI_SPEED = 2000000; // 14 MHz
 
 // --- W5500 Block Select Bits (BSB) ---
 #define W5500_BSB_COMMON       0x00
@@ -100,15 +101,15 @@ void setup() {
   w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   
-  // regData = MR_CMD_WOL;      
+  // regData = MR_CMD_WOL;
   // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   
-  // regData = MR_CMD_RESET;    
+  // regData = MR_CMD_RESET; 
   // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   
-  // regData = MR_CMD_WOL;      
+  // regData = MR_CMD_WOL;
   // w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   // w5500_read(W5500_MR, W5500_BSB_COMMON, &regData, 1);
   
@@ -125,16 +126,28 @@ void setup() {
   Serial.begin(1000000);
   while (!Serial) { ; }   // wait for serial monitor (optional)
   
-  // while (true) 
-  {
-    w5500_read(W5500_VERSIONR, W5500_BSB_COMMON, &regData, 1);
+  // while (true)
+  // {
+    for (int i = 0; i < 3; i ++){
+      w5500_read(W5500_VERSIONR, W5500_BSB_COMMON, &regData, 1);
+      delayMicroseconds(50);
+    }
 
     Serial.print("HW Ver: ");
     Serial.print(regData);
     Serial.println();
 
-    delay(1000);
-  }
+  //   // delay(1000);
+  //   delayMicroseconds(200);
+  //   w5500_write(W5500_SHAR, W5500_BSB_COMMON, CONF_MAC, 6);
+  //   delayMicroseconds(200);
+  //   w5500_write(W5500_SIPR, W5500_BSB_COMMON, CONF_SRC_IP, 4);
+  //   delayMicroseconds(200);
+  //   w5500_write(W5500_GAR,  W5500_BSB_COMMON, CONF_GATEWAY, 4);
+  //   delayMicroseconds(200);
+  //   w5500_write(W5500_SUBR, W5500_BSB_COMMON, CONF_NETMASK, 4);
+  //   delayMicroseconds(200);
+  // }
 
   // Serial.println("Exit idle");
 
@@ -166,7 +179,7 @@ void setup() {
     w5500_read(W5500_S_CR, W5500_BSB_S0, &regData, 1);
   } while (regData != 0x00);
 
-  Serial.println("Socket open");
+  Serial.println("Socket open!");
 
   // Post-open structural state verification logs
   // w5500_read(W5500_S_TX_RD, W5500_BSB_S0, buffer2Byte, 2);
@@ -193,8 +206,6 @@ void loop() {
   // 3. Extract the Active Write Pointer Target 
   w5500_read(W5500_S_TX_WR, W5500_BSB_S0, pointerData, 2);
   uint16_t tx_offset = (pointerData[0] << 8) | pointerData[1];
-
-  if (random(2) == 1) ( delayMicroseconds(20) );
 
   const uint32_t DATA_CH_CNT = 32;
 
@@ -224,8 +235,6 @@ void loop() {
   pointerData[1] = tx_offset & 0xFF;
   w5500_write(W5500_S_TX_WR, W5500_BSB_S0, pointerData, 2);
 
-  if (random(2) == 1) ( delayMicroseconds(20) );
-
   // 6. Command Execution: Transmit Packet Frame
   regData = S_CR_CMD_SEND; 
   w5500_write(W5500_S_CR, W5500_BSB_S0, &regData, 1);
@@ -241,8 +250,7 @@ void loop() {
   // regData = S_IR_INT_SENDOK; 
   // w5500_write(W5500_S_IR, W5500_BSB_S0, &regData, 1);
 
-  // delay(500); // Wait 1 second between transmissions
-  delayMicroseconds(100);
+  delay(500); // Wait 1 second between transmissions
   
   // if (random(1, 1000) == 50) {
   //   delay(1000);

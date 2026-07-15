@@ -14,7 +14,8 @@
 /skywater-pdk
 /netlist.v
 
-/research/data
+/research/data/**.csv
+/research/data/**.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
