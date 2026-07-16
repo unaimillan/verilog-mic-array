@@ -10,6 +10,7 @@ dependencies = [
     "plotly>=6.8.0",
     "pyvcd>=0.4.1",
     "scipy>=1.18.0",
+    "tqdm>=4.68.4",
 ]
 
 [dependency-groups]
