@@ -283,7 +283,7 @@ module common_top
 
     assign led[4] = ^ { temp1, temp2, temp3 };
 
-    assign led[8] = sw[8];
+    assign led[7] = sw[7];
 
     //------------------------------------------------------------------------
 

@@ -29,7 +29,8 @@ module w5500_cpu_driver_tb;
 
     //------------------------------------------------------------------------
 
-    logic a, half_b;
+    logic in_valid;
+    wire  in_ready;
 
     w5500_ucpu_driver
     # (
@@ -39,8 +40,8 @@ module w5500_cpu_driver_tb;
     (
         .clk      ( clk ) , // input
         .rst      ( rst ) , // input
-        .in_valid (  ) , // input
-        .in_ready (  ) , // output
+        .in_valid ( in_valid ) , // input
+        .in_ready ( in_ready ) , // output
         .in_data  (  ) , // input  [DATA_W - 1:0]
         .spi_clk  (  ) , // output
         .spi_cs_n (  ) , // output
@@ -55,15 +56,12 @@ module w5500_cpu_driver_tb;
     bit was_reset = 1'b0;
     always @ (posedge clk) if (rst) was_reset <= 1'b1;
 
-    int n_orig_tokens = 0,
-        n_half_tokens = 0;
-
-    always @ (posedge clk)
-        if (~ rst & was_reset)
-        begin
-            n_orig_tokens <= n_orig_tokens + 32' (a);
-            n_half_tokens <= n_half_tokens + 32' (half_b);
-        end
+    // always @ (posedge clk)
+    //     if (~ rst & was_reset)
+    //     begin
+    //         n_orig_tokens <= n_orig_tokens + 32' (a);
+    //         n_half_tokens <= n_half_tokens + 32' (half_b);
+    //     end
 
     //------------------------------------------------------------------------
 
@@ -78,13 +76,29 @@ module w5500_cpu_driver_tb;
 
         @ (negedge rst);
 
-        repeat (100)
+        repeat (10)
+            @ ( posedge clk );
+
+        // repeat (100)
+        // begin
+        //     a <= 1' ($urandom ());
+        //     @ (posedge clk);
+        // end
+
+        in_valid <= 1'b1;
+
+        @ ( posedge clk );
+
+        repeat (7) @ ( posedge clk );
+
+        while ( in_valid & in_ready )
         begin
-            a <= 1' ($urandom ());
-            @ (posedge clk);
+            @ ( posedge clk);
         end
 
-        a <= 1'b0;
+        in_valid <= 1'b0;
+
+        // a <= 1'b0;
 
         repeat (200)
             @ (posedge clk);

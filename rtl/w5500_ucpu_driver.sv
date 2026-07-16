@@ -61,7 +61,8 @@ module w5500_ucpu_driver
 
     assign debug_arvalid = in_valid;
 
-    assign in_ready = ^ { debug_arready, debug_rvalid, debug_rdata, debug_rlast };
+    // assign in_ready = ^ { debug_arready, debug_rvalid, debug_rdata, debug_rlast };
+    assign in_ready = debug_arready;
 
     assign out_data = debug_rdata;
 
@@ -70,12 +71,12 @@ module w5500_ucpu_driver
         .clk             ( clk                   ), // input
         .rst             ( rst                   ), // input
 
-        .awvalid         (                       ), // input  logic
+        .awvalid         ( '0                    ), // input  logic
         .awready         (                       ), // output logic
         .aw_block_select (                       ), // input  logic [ 4:0]
         .aw_offset_addr  (                       ), // input  logic [15:0]
         .awlen           (                       ), // input  logic [ 7:0]
-        .wvalid          (                       ), // input  logic
+        .wvalid          ( '0                    ), // input  logic
         .wready          (                       ), // output logic
         .wdata           (                       ), // input  logic [ 7:0]
         .wlast           (                       ), // input  logic

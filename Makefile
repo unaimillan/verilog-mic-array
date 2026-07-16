@@ -69,7 +69,7 @@ simulate-clean: $(SIMULATOR)-clean
 icarus-build: $(SIM_OUT_DIR)
 	iverilog -g2012 -o $(SIM_OUT_DIR)/sim.out -I ./rtl -I include/basics-graphics-music/labs/common \
 		include/basics-graphics-music/labs/common/*sv ./rtl/*.sv \
-		./sim/icarus/testbench.sv # >> $(SIM_OUT_DIR)/log.txt 2>&1
+		./sim/icarus/w5500_ucpu_driver_tb.sv # >> $(SIM_OUT_DIR)/log.txt 2>&1
 
 icarus-run: icarus-build
 	vvp $(SIM_OUT_DIR)/sim.out # >> $(SIM_OUT_DIR)/log.txt 2>&1
