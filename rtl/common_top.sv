@@ -252,10 +252,16 @@ module common_top
     //     .c1     ( pll_clk_14mhz )
     // );
 
-    assign spi_cs_n = gpio[ 36+10 ];
-    assign spi_mosi = gpio[ 36+11 ];
-    assign spi_miso = gpio[ 36+12 ];
-    assign spi_clk  = gpio[ 36+13 ];
+    // assign spi_cs_n = gpio[ 36+10 ];
+    // assign spi_mosi = gpio[ 36+11 ];
+    // assign spi_miso = gpio[ 36+12 ];
+    // assign spi_clk  = gpio[ 36+13 ];
+    // assign spi_int  = '0 ;
+
+    assign spi_cs_n = gpio[ 29 ];
+    assign spi_mosi = gpio[ 31 ];
+    assign spi_miso = gpio[ 33 ];
+    assign spi_clk  = gpio[ 35 ];
     assign spi_int  = '0 ;
 
     logic [100:0] temp1, temp2, temp3;

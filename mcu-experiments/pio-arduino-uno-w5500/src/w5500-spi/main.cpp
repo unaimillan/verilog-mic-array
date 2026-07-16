@@ -3,7 +3,9 @@
 
 // --- SPI Pins & Settings ---
 const int CS_PIN = 10; 
-const uint32_t SPI_SPEED = 14000000; // 14 MHz
+// const uint32_t SPI_SPEED = 14000000; // 14 MHz
+// const uint32_t SPI_SPEED = 250000; // 250 kHz
+const uint32_t SPI_SPEED = 500000; // 250 kHz
 
 // --- W5500 Block Select Bits (BSB) ---
 #define W5500_BSB_COMMON       0x00
@@ -85,6 +87,10 @@ void w5500_read(uint16_t addr, uint8_t bsb, uint8_t *buf, uint16_t len) {
 // --- Arduino Lifecycle Functions ---
 
 void setup() {
+  // Wait for serial monitor (optional)
+  Serial.begin(1000000);
+  while (!Serial) { ; }
+
   pinMode(CS_PIN, OUTPUT);
   digitalWrite(CS_PIN, HIGH);
   
@@ -95,6 +101,9 @@ void setup() {
   uint8_t buffer2Byte[2];
   uint8_t buffer4Byte[4];
   
+  // while(true)
+  {
+
   // --- Initialization Handshake Sequence ---
   regData = MR_CMD_RESET;
   w5500_write(W5500_MR, W5500_BSB_COMMON, &regData, 1);
@@ -122,18 +131,22 @@ void setup() {
   
   // Hardware Verification Pass
   
-  Serial.begin(1000000);
-  while (!Serial) { ; }   // wait for serial monitor (optional)
   
   // while (true) 
   {
+
+    for (int i = 0; i < 3; i++)
+    {
     w5500_read(W5500_VERSIONR, W5500_BSB_COMMON, &regData, 1);
+
+    delayMicroseconds(50);
+    }
 
     Serial.print("HW Ver: ");
     Serial.print(regData);
     Serial.println();
 
-    delay(1000);
+    delay(500);
   }
 
   // Serial.println("Exit idle");
@@ -180,7 +193,18 @@ void setup() {
   pointerData[0] = CONF_DST_PORT >> 8;
   pointerData[1] = CONF_DST_PORT & 0xFF;
   w5500_write(W5500_S_DPORT, W5500_BSB_S0, pointerData, 2);
+
+  delay(1000); 
+  }
 }
+
+uint16_t counter = 0;
+
+const uint32_t DATA_CH_CNT = 32;
+
+// 4. Map and Pipe Out Byte Stream to the W5500 Hardware Memory Block
+// uint8_t payload[DATA_CH_CNT];
+char payload_chars[DATA_CH_CNT] = { "\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\n" };
 
 void loop() {
   uint8_t regData;
@@ -194,29 +218,26 @@ void loop() {
   w5500_read(W5500_S_TX_WR, W5500_BSB_S0, pointerData, 2);
   uint16_t tx_offset = (pointerData[0] << 8) | pointerData[1];
 
-  if (random(2) == 1) ( delayMicroseconds(20) );
+  // if (random(2) == 1) ( delayMicroseconds(20) );
 
-  const uint32_t DATA_CH_CNT = 32;
 
-  // 4. Map and Pipe Out Byte Stream to the W5500 Hardware Memory Block
-  uint8_t payload[DATA_CH_CNT];
-  char hello[] = "hello";
-  char world[] = "world!";
+  snprintf(payload_chars, DATA_CH_CNT, "Hello world! %d cnt", counter);
+  counter += 1;
 
-  static uint8_t byteCounter = 2; // Incremental value tracker matching the data logs
-  for(u32 i = 0; i < DATA_CH_CNT; i++) {
-    if ( i < sizeof(hello)) {
-      payload[i] = hello[i];
-    } else if (i >= DATA_CH_CNT - sizeof(world)){
-      payload[i] = world[sizeof(world) - (DATA_CH_CNT - i)];
-    }
-    else {
-      payload[i] = byteCounter++;
-    }
-  }
+  // static uint8_t byteCounter = 2; // Incremental value tracker matching the data logs
+  // for(u32 i = 0; i < DATA_CH_CNT; i++) {
+  //   if ( i < sizeof(hello)) {
+  //     payload[i] = hello[i];
+  //   } else if (i >= DATA_CH_CNT - sizeof(world)){
+  //     payload[i] = world[sizeof(world) - (DATA_CH_CNT - i)];
+  //   }
+  //   else {
+  //     payload[i] = byteCounter++;
+  //   }
+  // }
   
   // Send data directly to the TX buffer layout block
-  w5500_write(tx_offset, W5500_BSB_S0_TX, payload, DATA_CH_CNT);
+  w5500_write(tx_offset, W5500_BSB_S0_TX, (uint8_t *)payload_chars, DATA_CH_CNT);
 
   // 5. Shift the Write Pointer ahead by the payload length size
   tx_offset += DATA_CH_CNT;
@@ -224,7 +245,7 @@ void loop() {
   pointerData[1] = tx_offset & 0xFF;
   w5500_write(W5500_S_TX_WR, W5500_BSB_S0, pointerData, 2);
 
-  if (random(2) == 1) ( delayMicroseconds(20) );
+  // if (random(2) == 1) ( delayMicroseconds(20) );
 
   // 6. Command Execution: Transmit Packet Frame
   regData = S_CR_CMD_SEND; 
@@ -241,8 +262,8 @@ void loop() {
   // regData = S_IR_INT_SENDOK; 
   // w5500_write(W5500_S_IR, W5500_BSB_S0, &regData, 1);
 
-  // delay(500); // Wait 1 second between transmissions
-  delayMicroseconds(100);
+  delay(500); // Wait 1 second between transmissions
+  // delayMicroseconds(100);
   
   // if (random(1, 1000) == 50) {
   //   delay(1000);
