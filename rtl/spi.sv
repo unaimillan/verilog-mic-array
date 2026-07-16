@@ -22,7 +22,8 @@
 //
 // Reference:
 // https://github.com/hildebrandmw/de10lite-hdl/blob/746415de520de8d8ad79af5490d89b2ea8b3497a/components/spi/hdl/spi.sv
-
+//
+// -----------------------------------------------------------------------------
 
 module spi #(
         // Number of bits per transaction
@@ -38,6 +39,7 @@ module spi #(
         // Transaction request signals.
         input                       tx_request,
         input   [DATASIZE-1:0]      tx_data,
+        output logic                tx_ack_req,
         input                       rx_request,
         output logic [DATASIZE-1:0] rx_data,
         output logic                rx_valid,
@@ -101,7 +103,7 @@ module spi #(
     state_t state, state_next;
 
     logic [$clog2(DATASIZE)-1:0] count, count_next;
-    logic spi_csn_next, spi_sdi_next, rx_valid_next;
+    logic spi_csn_next, spi_sdi_next, rx_valid_next, tx_ack_req_next;
 
     // Signals to store the request signals.
     logic save_requests, tx_request_r, rx_request_r; 
@@ -127,6 +129,7 @@ module spi #(
         count <= count_next;
         rx_data <= rx_data_next;
         rx_valid <= rx_valid_next;
+        tx_ack_req <= tx_ack_req_next;
 
         // Save inputs
         if (save_requests) begin
@@ -147,6 +150,8 @@ module spi #(
 
         rx_data_next = rx_data;
         rx_valid_next = 1'b0;
+
+        tx_ack_req_next = 1'b0;
 
         idlecount_next = idlecount;
 
@@ -207,6 +212,10 @@ module spi #(
                         if (rx_request_r) begin
                             rx_valid_next = 1'b1;
                         end 
+
+                        if (tx_request_r) begin
+                            tx_ack_req_next = 1'b1;
+                        end
 
                         // If there is a pending request, acknowledge it.
                         if (pending_request) begin

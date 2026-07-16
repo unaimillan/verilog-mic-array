@@ -1,4 +1,7 @@
 module w5500_axi_over_spi
+# (
+    parameter RW_BUFFER_DEPTH = 32
+)
 (
     input         clk,
     input         rst,
@@ -55,28 +58,17 @@ module w5500_axi_over_spi
 
     state_t state, next_state;
 
-    logic spi_addr_transfer_active;
     logic spi_addr_transfer_done;
-
-    logic spi_write_transfer_active;
     logic spi_write_transfer_done;
-
-    logic spi_read_transfer_active;
     logic spi_read_transfer_done;
-
-    logic request_write_transfer_active;
     logic request_write_transfer_done;
-
-    logic response_read_transfer_active;
     logic response_read_transfer_done;
-    
-    // logic [31:0][7:0] spi_write_mem;
-    // logic       [4:0] spi_write_ptr;
 
     // -------------------------------------------------------------------------
 
     logic       spi_rx_request;
     logic       spi_tx_request;
+    logic       spi_tx_ack_req;
     logic       spi_ack_request;
     logic       spi_rx_valid;
     logic [7:0] spi_tx_data;
@@ -136,12 +128,6 @@ module w5500_axi_over_spi
     begin
         next_state = state;
 
-        request_write_transfer_active = '0;
-        spi_addr_transfer_active      = '0;
-        spi_write_transfer_active     = '0;
-        spi_read_transfer_active      = '0;
-        response_read_transfer_active = '0;
-
         arready = 1'b0;
         awready = 1'b0;
         bvalid  = 1'b0;
@@ -169,8 +155,6 @@ module w5500_axi_over_spi
         begin
             // Begin reading N len bytes of data from SPI into buffer
 
-            request_write_transfer_active = '1;
-
             if ( request_write_transfer_done )
             begin
                 next_state = ST_SPI_SEND_ADDR;
@@ -180,18 +164,17 @@ module w5500_axi_over_spi
         begin
             // Begin SPI transaction by sending address
 
-            spi_addr_transfer_active = '1;
-
             if ( spi_addr_transfer_done )
             begin
-                next_state = ST_SPI_READ_DATA;
+                if ( rw_mode_r )
+                    next_state = ST_SPI_WRITE_DATA;
+                else
+                    next_state = ST_SPI_READ_DATA;
             end
         end
         ST_SPI_WRITE_DATA:
         begin
             // Begin reading N len bytes of data from SPI into buffer
-
-            spi_write_transfer_active = '1;
 
             if ( spi_write_transfer_done )
             begin
@@ -201,8 +184,6 @@ module w5500_axi_over_spi
         ST_SPI_READ_DATA:
         begin
             // Begin reading N len bytes of data from SPI into buffer
-
-            spi_read_transfer_active = '1;
 
             if ( spi_read_transfer_done )
             begin
@@ -222,8 +203,6 @@ module w5500_axi_over_spi
             end
             else
             begin
-                response_read_transfer_active = '1;
-
                 if ( response_read_transfer_done )
                 begin
                     next_state = ST_IDLE;
@@ -255,139 +234,151 @@ module w5500_axi_over_spi
     ) 
     spi_addr_mem_ptr_inst
     (
-        .clk          ( clk                                        ),
-        .rst          ( rst                                        ),
-        .start        (                                            ), // input
-        .tick_valid   ( spi_addr_transfer_active & spi_ack_request ), // input
-        .finished     ( spi_addr_ptr_last                          ), // output logic
-        .counter      ( spi_addr_ptr                               ), // output logic [CNT_W-1:0]
-        .counter_next (                                            )  // output logic [CNT_W-1:0]
+        .clk          ( clk                           ),
+        .rst          ( rst                           ),
+        .start        (                               ), // input
+        .tick_valid   ( ( state == ST_SPI_SEND_ADDR ) 
+                        & spi_ack_request             ), // input
+        .finished     ( spi_addr_ptr_last             ), // output logic
+        .counter      ( spi_addr_ptr                  ), // output logic [CNT_W-1:0]
+        .counter_next (                               )  // output logic [CNT_W-1:0]
     );
 
     assign spi_addr_transfer_done = spi_addr_ptr_last & spi_ack_request;
 
     // -------------------------------------------------------------------------
 
-    logic       spi_tx_request_next;
+    logic       mem_write;
+    logic       mem_read;
+    logic [7:0] mem_wdata;
+    logic [7:0] mem_rdata;
 
-    // ---------------------------------
+    localparam CNT_W = $clog2( RW_BUFFER_DEPTH + 1 );
 
-    logic             write_mem_last;
-    logic       [4:0] write_mem_ptr;
-    logic       [4:0] write_mem_ptr_next;
-    logic [31:0][7:0] write_mem;
-
-    counter_timer
-    #(
-        .COUNT_DOWN ( 1'b0 ),
-        .MAX_VALUE  ( 32   )
-    )
-    write_mem_ptr_inst
-    (
-        .clk             ( clk                                                                                      ), // input
-        .rst             ( rst                                                                                      ), // input
-        .soft_rst        ( request_write_transfer_done | spi_write_transfer_done                                    ), // input
-        .start           (                                                                                          ), // input
-        .tick_valid      ( ( request_write_transfer_active & wvalid ) | ( spi_write_transfer_active & spi_tx_request_next )  ), // input
-        .finished        (                                                                                          ), // output logic
-        .counter         ( write_mem_ptr                                                                             ), // output logic [CNT_W-1:0]
-        .counter_next    ( write_mem_ptr_next                                                                        )  // output logic [CNT_W-1:0]
-    );
-
-    assign write_mem_last              = write_mem_ptr_next == 5'( awlen_r );
-    assign request_write_transfer_done = write_mem_last;
-    assign spi_write_transfer_done     = write_mem_last & spi_rx_valid;
-
-    always_ff @( posedge clk )
-    begin
-        if ( request_write_transfer_active & wvalid )
-            write_mem[write_mem_ptr] <= wdata;
-    end
-
-    assign wready = request_write_transfer_active & ( ~ request_write_transfer_done );
-
-    // -------------------------------------------------------------------------
-
-    logic             read_mem_last;
-    logic       [4:0] read_mem_ptr;
-    logic       [4:0] read_mem_ptr_next;
-    logic [31:0][7:0] read_mem;
+    logic [CNT_W - 1:0] counter;
+    logic [CNT_W - 1:0] counter_next;
+    logic               counter_rst;
+    logic               counter_tick;
 
     counter_timer
     #(
         .COUNT_DOWN ( 1'b0 ),
-        .MAX_VALUE  ( 32   )
+        .MAX_VALUE  ( RW_BUFFER_DEPTH )
     )
-    read_mem_ptr_inst
+    mem_counter_i
     (
-        .clk             ( clk                                                                                      ), // input
-        .rst             ( rst                                                                                      ), // input
-        .soft_rst        ( spi_read_transfer_done | response_read_transfer_done                                     ), // input
-        .start           (                                                                                          ), // input
-        .tick_valid      ( ( spi_read_transfer_active & spi_rx_valid ) | ( response_read_transfer_active & rready ) ), // input
-        .finished        (                                                                                          ), // output logic
-        .counter         ( read_mem_ptr                                                                             ), // output logic [CNT_W-1:0]
-        .counter_next    ( read_mem_ptr_next                                                                        )  // output logic [CNT_W-1:0]
+        .clk             ( clk          ), // input
+        .rst             ( rst          ), // input
+        .soft_rst        ( counter_rst  ), // input
+        .start           (              ), // input
+        .tick_valid      ( counter_tick ), // input
+        .finished        (              ), // output logic
+        .counter         ( counter      ), // output logic [CNT_W-1:0]
+        .counter_next    ( counter_next )  // output logic [CNT_W-1:0]
     );
 
-    assign read_mem_last               = read_mem_ptr_next == 5'( arlen_r );
-    assign spi_read_transfer_done      = read_mem_last & spi_rx_valid;
-    assign response_read_transfer_done = read_mem_last & rready;
-
-    always_ff @( posedge clk )
-    begin
-        if ( spi_read_transfer_active & spi_rx_valid )
-            read_mem[read_mem_ptr] <= spi_rx_data;
-        else if ( response_read_transfer_active )
-            rdata <= read_mem[read_mem_ptr];
-    end
-
-    always_ff @( posedge clk)
-    begin
-        rvalid <= response_read_transfer_active;
-        rlast  <= read_mem_last;
-    end
+    fifo_dualport
+    # (
+        .WIDTH ( 8 ),
+        .DEPTH ( RW_BUFFER_DEPTH )
+    )
+    fifo_mem
+    (
+        .clk_i   ( clk       ), // input  logic
+        .rst_i   ( rst       ), // input  logic
+        .wr_en_i ( mem_write ), // input  logic
+        .rd_en_i ( mem_read  ), // input  logic
+        .data_i  ( mem_wdata ), // input  logic [WIDTH-1:0]
+        .data_o  ( mem_rdata ), // output logic [WIDTH-1:0]
+        .empty_o (           ), // output logic
+        .full_o  (           )  // output logic
+    );
 
     // -------------------------------------------------------------------------
-
-    logic       spi_tx_request_r;
-    logic [7:0] spi_tx_data_r;
-    logic [7:0] spi_tx_data_next;
 
     always_comb
     begin
-        spi_tx_request_next = '0;
-        spi_tx_data_next    = '0;
-        spi_rx_request      = '0;
+        counter_rst  = '0;
+        counter_tick = '0;
+        mem_write    = '0;
+        mem_read     = '0;
+        mem_wdata    = '0;
+        rvalid       = '0;
+        rdata        = '0;
+        rlast        = '0;
+        
+        if ( (state != ST_SPI_READ_DATA & next_state == ST_SPI_READ_DATA) | (state != ST_SEND_RESP & next_state == ST_SEND_RESP) )
+        begin
+            counter_rst = 1'b1;
+        end
 
-        if ( spi_addr_transfer_active & ( ~ spi_addr_transfer_done ) )
+        if ( spi_rx_valid | ( rvalid & rready ) )
         begin
-            spi_tx_request_next = '1;
-            spi_tx_data_next = spi_request_mem[spi_addr_ptr];
+            counter_tick = 1'b1;
         end
-        else if ( spi_write_transfer_active & ( ~ spi_write_transfer_done ) )
+
+        if ( state == ST_SPI_READ_DATA )
         begin
-            spi_tx_request_next = '1;
-            spi_tx_data_next = write_mem[write_mem_ptr];
+            mem_write = spi_rx_valid;
+            mem_wdata = spi_rx_data;
         end
-        else if ( spi_read_transfer_active & ( ~ spi_read_transfer_done ) )
+        else if ( state == ST_SEND_RESP )
+        begin
+            rvalid = 1'b1;
+            mem_read = rvalid & rready;
+            rdata  = mem_rdata;
+            rlast  = counter_next == CNT_W'(arlen_r);
+        end
+
+        spi_read_transfer_done = ( counter_next == CNT_W'(arlen_r) ) & spi_rx_valid;
+        response_read_transfer_done = ( counter_next == CNT_W'(arlen_r) ) & rready;
+
+    end
+
+    // -------------------------------------------------------------------------
+
+    always_comb
+    begin
+        spi_tx_request = '0;
+        spi_tx_data    = '0;
+        spi_rx_request = '0;
+
+        if ( state == ST_SPI_SEND_ADDR & ( ~ spi_addr_transfer_done ) )
+        begin
+            spi_tx_request = '1;
+            spi_tx_data = spi_request_mem[spi_addr_ptr];
+        end
+        else if ( state == ST_SPI_WRITE_DATA & ( ~ spi_write_transfer_done ) )
+        begin
+            spi_tx_request = '1;
+            spi_tx_data = mem_rdata;
+        end
+        else if ( state == ST_SPI_READ_DATA & ( ~ spi_read_transfer_done ) )
         begin
             spi_rx_request = '1;
         end
     end
 
-    always_ff @( clk )
-    begin
-        spi_tx_request_r <= spi_tx_request_next;
+    // -------------------------------------------------------------------------
 
-        if ( spi_tx_request_next )
-        begin
-            spi_tx_data_r <= spi_tx_data_next;
-        end
-    end
+    //     .clk             ( clk                                                                                      ), // input
+    //     .rst             ( rst                                                                                      ), // input
+    //     .soft_rst        ( request_write_transfer_done | spi_write_transfer_done                                    ), // input
+    //     .start           (                                                                                          ), // input
+    //     .tick_valid      ( ( request_write_transfer_active & wvalid ) | ( spi_write_transfer_active & spi_tx_request_next )  ), // input
 
-    assign spi_tx_request = spi_tx_request_r;
-    assign spi_tx_data    = spi_tx_data_r;
+
+    // assign write_mem_last              = write_mem_ptr_next == 5'( awlen_r );
+    // assign request_write_transfer_done = write_mem_last;
+    // assign spi_write_transfer_done     = write_mem_last & spi_rx_valid;
+
+    // always_ff @( posedge clk )
+    // begin
+    //     if ( request_write_transfer_active & wvalid )
+    //         write_mem[write_mem_ptr] <= wdata;
+    // end
+
+    // assign wready = request_write_transfer_active & ( ~ request_write_transfer_done );
 
     // -------------------------------------------------------------------------
 
@@ -402,12 +393,13 @@ module w5500_axi_over_spi
         .clk         (   clk           ),
         .reset_n     ( ~ rst           ),
 
-        .rx_request  ( spi_rx_request  ),
         .tx_request  ( spi_tx_request  ),
-        .ack_request ( spi_ack_request ),
-        .rx_valid    ( spi_rx_valid    ),
         .tx_data     ( spi_tx_data     ), // [DATASIZE-1:0] 
+        .tx_ack_req  ( spi_tx_ack_req  ),
+        .rx_request  ( spi_rx_request  ),
+        .rx_valid    ( spi_rx_valid    ),
         .rx_data     ( spi_rx_data     ), // [DATASIZE-1:0] 
+        .ack_request ( spi_ack_request ),
         .active      (                 ),
 
         .spi_clk     ( spi_clk         ),
