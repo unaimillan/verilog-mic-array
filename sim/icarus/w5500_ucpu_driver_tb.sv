@@ -32,21 +32,24 @@ module w5500_cpu_driver_tb;
     logic in_valid;
     wire  in_ready;
 
+    wire  spi_clk;
+    logic spi_miso;
+
     w5500_ucpu_driver
     # (
         .DATA_W ( 32 )
     )
     ucpu_driver_inst
     (
-        .clk      ( clk ) , // input
-        .rst      ( rst ) , // input
-        .in_valid ( in_valid ) , // input
-        .in_ready ( in_ready ) , // output
-        .in_data  (  ) , // input  [DATA_W - 1:0]
-        .spi_clk  (  ) , // output
-        .spi_cs_n (  ) , // output
-        .spi_mosi (  ) , // output
-        .spi_miso (  )   // input
+        .clk      ( clk      ), // input
+        .rst      ( rst      ), // input
+        .in_valid ( in_valid ), // input
+        .in_ready ( in_ready ), // output
+        .in_data  (          ), // input  [DATA_W - 1:0]
+        .spi_clk  ( spi_clk  ), // output
+        .spi_cs_n (          ), // output
+        .spi_mosi (          ), // output
+        .spi_miso ( spi_miso )  // input
     );
 
     //------------------------------------------------------------------------
@@ -64,6 +67,17 @@ module w5500_cpu_driver_tb;
     //     end
 
     //------------------------------------------------------------------------
+    
+    // Generator
+
+    always_ff @( negedge spi_clk )
+    begin
+        spi_miso <= 1' ( $urandom () );
+    end
+
+    //------------------------------------------------------------------------
+
+    // Stimula driver
 
     initial
     begin
@@ -89,7 +103,7 @@ module w5500_cpu_driver_tb;
 
         @ ( posedge clk );
 
-        repeat (7) @ ( posedge clk );
+        // repeat (7) @ ( posedge clk );
 
         while ( in_valid & in_ready )
         begin
@@ -102,6 +116,8 @@ module w5500_cpu_driver_tb;
 
         repeat (200)
             @ (posedge clk);
+        
+
 
         //--------------------------------------------------------------------
 

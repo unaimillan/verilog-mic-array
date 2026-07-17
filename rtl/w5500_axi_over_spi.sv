@@ -64,6 +64,13 @@ module w5500_axi_over_spi
     logic request_write_transfer_done;
     logic response_read_transfer_done;
 
+    wire goto_st_idle           = ( state != ST_IDLE           ) & ( next_state == ST_IDLE           );
+    wire goto_st_recv_write_req = ( state != ST_RECV_WRITE_REQ ) & ( next_state == ST_RECV_WRITE_REQ );
+    wire goto_st_spi_send_addr  = ( state != ST_SPI_SEND_ADDR  ) & ( next_state == ST_SPI_SEND_ADDR  );
+    wire goto_st_spi_read_data  = ( state != ST_SPI_READ_DATA  ) & ( next_state == ST_SPI_READ_DATA  );
+    wire goto_st_spi_write_data = ( state != ST_SPI_WRITE_DATA ) & ( next_state == ST_SPI_WRITE_DATA );
+    wire goto_st_send_resp      = ( state != ST_SEND_RESP      ) & ( next_state == ST_SEND_RESP      );
+
     // -------------------------------------------------------------------------
 
     logic       spi_rx_request;
@@ -224,27 +231,29 @@ module w5500_axi_over_spi
 
     // -------------------------------------------------------------------------
 
-    logic            spi_addr_ptr_last;
     logic      [1:0] spi_addr_ptr;
+    logic            spi_addr_ptr_rst;
 
     counter_timer
     #(
-        .COUNT_DOWN ( 1'b1 ),
-        .MAX_VALUE  ( 2    )
+        .COUNT_DOWN ( 1'b0 ),
+        .MAX_VALUE  ( 3    )
     ) 
     spi_addr_mem_ptr_inst
     (
         .clk          ( clk                           ),
         .rst          ( rst                           ),
+        .soft_rst     ( spi_addr_ptr_rst              ),
         .start        (                               ), // input
         .tick_valid   ( ( state == ST_SPI_SEND_ADDR ) 
                         & spi_ack_request             ), // input
-        .finished     ( spi_addr_ptr_last             ), // output logic
+        .finished     (                               ), // output logic
         .counter      ( spi_addr_ptr                  ), // output logic [CNT_W-1:0]
         .counter_next (                               )  // output logic [CNT_W-1:0]
     );
 
-    assign spi_addr_transfer_done = spi_addr_ptr_last & spi_ack_request;
+    assign spi_addr_ptr_rst = goto_st_spi_send_addr;
+    assign spi_addr_transfer_done = ( spi_addr_ptr == 2'd3 ) & spi_tx_ack_req;
 
     // -------------------------------------------------------------------------
 
@@ -300,22 +309,28 @@ module w5500_axi_over_spi
     begin
         counter_rst  = '0;
         counter_tick = '0;
+        
+        if ( goto_st_spi_read_data | goto_st_send_resp )
+        begin
+            counter_rst = 1'b1;
+        end
+        else
+        begin
+            if ( ( state == ST_SPI_READ_DATA & spi_ack_request ) | ( state == ST_SEND_RESP & rvalid & rready ) )
+            begin
+                counter_tick = 1'b1;
+            end
+        end
+    end
+
+    always_comb
+    begin
         mem_write    = '0;
         mem_read     = '0;
         mem_wdata    = '0;
         rvalid       = '0;
         rdata        = '0;
         rlast        = '0;
-        
-        if ( (state != ST_SPI_READ_DATA & next_state == ST_SPI_READ_DATA) | (state != ST_SEND_RESP & next_state == ST_SEND_RESP) )
-        begin
-            counter_rst = 1'b1;
-        end
-
-        if ( spi_rx_valid | ( rvalid & rready ) )
-        begin
-            counter_tick = 1'b1;
-        end
 
         if ( state == ST_SPI_READ_DATA )
         begin
@@ -330,9 +345,8 @@ module w5500_axi_over_spi
             rlast  = counter_next == CNT_W'(arlen_r);
         end
 
-        spi_read_transfer_done = ( counter_next == CNT_W'(arlen_r) ) & spi_rx_valid;
+        spi_read_transfer_done = ( counter == CNT_W'(arlen_r) ) & spi_rx_valid;
         response_read_transfer_done = ( counter_next == CNT_W'(arlen_r) ) & rready;
-
     end
 
     // -------------------------------------------------------------------------
@@ -343,17 +357,17 @@ module w5500_axi_over_spi
         spi_tx_data    = '0;
         spi_rx_request = '0;
 
-        if ( state == ST_SPI_SEND_ADDR & ( ~ spi_addr_transfer_done ) )
+        if ( state == ST_SPI_SEND_ADDR & ( spi_addr_ptr != 2'd3 ) )
         begin
             spi_tx_request = '1;
-            spi_tx_data = spi_request_mem[spi_addr_ptr];
+            spi_tx_data = spi_request_mem[ 2'd2 - spi_addr_ptr ];
         end
         else if ( state == ST_SPI_WRITE_DATA & ( ~ spi_write_transfer_done ) )
         begin
             spi_tx_request = '1;
             spi_tx_data = mem_rdata;
         end
-        else if ( state == ST_SPI_READ_DATA & ( ~ spi_read_transfer_done ) )
+        else if ( state == ST_SPI_READ_DATA & ( counter != CNT_W'(arlen_r) ) )
         begin
             spi_rx_request = '1;
         end
