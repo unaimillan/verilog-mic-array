@@ -1,6 +1,6 @@
 module w5500_axi_over_spi
 # (
-    parameter RW_BUFFER_DEPTH = 32
+    parameter BUFFER_DEPTH_BYTE = 32
 )
 (
     input         clk,
@@ -88,10 +88,10 @@ module w5500_axi_over_spi
     
     always_ff @( posedge clk )
     begin
-        if ( arvalid )
+        if ( arvalid & arready )
             arlen_r <= arlen;
 
-        if ( awvalid )
+        if ( awvalid & awready )
             awlen_r <= awlen;
     end
 
@@ -122,7 +122,7 @@ module w5500_axi_over_spi
 
     always_ff @( posedge clk )
     begin
-        if ( arvalid | awvalid )
+        if ( ( arvalid & arready ) | ( awvalid & awready ) )
         begin
             rw_mode_r       <= rw_mode;
             spi_request_mem <= { spi_req_addr[8 +: 8], spi_req_addr[0 +: 8], spi_req_control};
@@ -253,7 +253,7 @@ module w5500_axi_over_spi
     );
 
     assign spi_addr_ptr_rst = goto_st_spi_send_addr;
-    assign spi_addr_transfer_done = ( spi_addr_ptr == 2'd3 ) & spi_tx_ack_req;
+    assign spi_addr_transfer_done = ( spi_addr_ptr == 2'd2 ) & spi_ack_request;
 
     // -------------------------------------------------------------------------
 
@@ -262,7 +262,7 @@ module w5500_axi_over_spi
     logic [7:0] mem_wdata;
     logic [7:0] mem_rdata;
 
-    localparam CNT_W = $clog2( RW_BUFFER_DEPTH + 1 );
+    localparam CNT_W = $clog2( BUFFER_DEPTH_BYTE + 1 );
 
     logic [CNT_W - 1:0] counter;
     logic [CNT_W - 1:0] counter_next;
@@ -272,7 +272,7 @@ module w5500_axi_over_spi
     counter_timer
     #(
         .COUNT_DOWN ( 1'b0 ),
-        .MAX_VALUE  ( RW_BUFFER_DEPTH )
+        .MAX_VALUE  ( BUFFER_DEPTH_BYTE )
     )
     mem_counter_i
     (
@@ -289,7 +289,7 @@ module w5500_axi_over_spi
     fifo_dualport
     # (
         .WIDTH ( 8 ),
-        .DEPTH ( RW_BUFFER_DEPTH )
+        .DEPTH ( BUFFER_DEPTH_BYTE )
     )
     fifo_mem
     (
@@ -310,13 +310,16 @@ module w5500_axi_over_spi
         counter_rst  = '0;
         counter_tick = '0;
         
-        if ( goto_st_spi_read_data | goto_st_send_resp )
+        if ( goto_st_recv_write_req | goto_st_spi_write_data | goto_st_spi_read_data | goto_st_send_resp )
         begin
             counter_rst = 1'b1;
         end
         else
         begin
-            if ( ( state == ST_SPI_READ_DATA & spi_ack_request ) | ( state == ST_SEND_RESP & rvalid & rready ) )
+            if (
+                  ( state == ST_RECV_WRITE_REQ & wvalid & wready ) | ( state == ST_SPI_WRITE_DATA & spi_ack_request )
+                | ( state == ST_SPI_READ_DATA  & spi_ack_request ) | ( state == ST_SEND_RESP      & rvalid & rready )
+            )
             begin
                 counter_tick = 1'b1;
             end
@@ -332,7 +335,16 @@ module w5500_axi_over_spi
         rdata        = '0;
         rlast        = '0;
 
-        if ( state == ST_SPI_READ_DATA )
+        if ( state == ST_RECV_WRITE_REQ )
+        begin
+            mem_write = wvalid & wready;
+            mem_wdata = wdata;
+        end
+        else if ( state == ST_SPI_WRITE_DATA )
+        begin
+            mem_read = spi_ack_request;
+        end
+        else if ( state == ST_SPI_READ_DATA )
         begin
             mem_write = spi_rx_valid;
             mem_wdata = spi_rx_data;
@@ -345,9 +357,25 @@ module w5500_axi_over_spi
             rlast  = counter_next == CNT_W'(arlen_r);
         end
 
-        spi_read_transfer_done = ( counter == CNT_W'(arlen_r) ) & spi_rx_valid;
+        request_write_transfer_done = ( counter_next == CNT_W'(awlen_r) ) & wvalid & wready;
+        spi_write_transfer_done     = ( counter      == CNT_W'(awlen_r) ) & spi_ack_request;
+        spi_read_transfer_done      = ( counter      == CNT_W'(arlen_r) ) & spi_rx_valid;
         response_read_transfer_done = ( counter_next == CNT_W'(arlen_r) ) & rready;
     end
+
+    assign wready = ( state == ST_RECV_WRITE_REQ ) & ( counter != CNT_W'(awlen_r) );
+
+    // -------------------------------------------------------------------------
+
+    // assign write_mem_last              = write_mem_ptr_next == 5'( awlen_r );
+    // assign request_write_transfer_done = write_mem_last;
+    // assign spi_write_transfer_done     = write_mem_last & spi_rx_valid;
+
+    // always_ff @( posedge clk )
+    // begin
+    //     if ( request_write_transfer_active & wvalid )
+    //         write_mem[write_mem_ptr] <= wdata;
+    // end
 
     // -------------------------------------------------------------------------
 
@@ -357,7 +385,7 @@ module w5500_axi_over_spi
         spi_tx_data    = '0;
         spi_rx_request = '0;
 
-        if ( state == ST_SPI_SEND_ADDR & ( spi_addr_ptr != 2'd3 ) )
+        if ( state == ST_SPI_SEND_ADDR )
         begin
             spi_tx_request = '1;
             spi_tx_data = spi_request_mem[ 2'd2 - spi_addr_ptr ];
@@ -372,27 +400,6 @@ module w5500_axi_over_spi
             spi_rx_request = '1;
         end
     end
-
-    // -------------------------------------------------------------------------
-
-    //     .clk             ( clk                                                                                      ), // input
-    //     .rst             ( rst                                                                                      ), // input
-    //     .soft_rst        ( request_write_transfer_done | spi_write_transfer_done                                    ), // input
-    //     .start           (                                                                                          ), // input
-    //     .tick_valid      ( ( request_write_transfer_active & wvalid ) | ( spi_write_transfer_active & spi_tx_request_next )  ), // input
-
-
-    // assign write_mem_last              = write_mem_ptr_next == 5'( awlen_r );
-    // assign request_write_transfer_done = write_mem_last;
-    // assign spi_write_transfer_done     = write_mem_last & spi_rx_valid;
-
-    // always_ff @( posedge clk )
-    // begin
-    //     if ( request_write_transfer_active & wvalid )
-    //         write_mem[write_mem_ptr] <= wdata;
-    // end
-
-    // assign wready = request_write_transfer_active & ( ~ request_write_transfer_done );
 
     // -------------------------------------------------------------------------
 

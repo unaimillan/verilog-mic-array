@@ -17,7 +17,8 @@ module w5500_ucpu_driver
     output                 in_ready,
     input  [DATA_W - 1:0]  in_data,
 
-    output    [7:0]        out_data,
+    output                 out_valid,
+    output [         7:0]  out_data,
 
     // ---------------------------------
     // External SPI interface
@@ -64,7 +65,8 @@ module w5500_ucpu_driver
     // assign in_ready = ^ { debug_arready, debug_rvalid, debug_rdata, debug_rlast };
     assign in_ready = debug_arready;
 
-    assign out_data = debug_rdata;
+    assign out_valid = debug_rvalid;
+    assign out_data  = debug_rdata;
 
     w5500_axi_over_spi w5500_driver_inst
     (

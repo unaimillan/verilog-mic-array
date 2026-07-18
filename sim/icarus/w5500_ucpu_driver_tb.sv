@@ -32,7 +32,11 @@ module w5500_cpu_driver_tb;
     logic in_valid;
     wire  in_ready;
 
+    wire  out_valid;
+
     wire  spi_clk;
+    wire  spi_csn;
+    wire  spi_mosi;
     logic spi_miso;
 
     w5500_ucpu_driver
@@ -41,15 +45,17 @@ module w5500_cpu_driver_tb;
     )
     ucpu_driver_inst
     (
-        .clk      ( clk      ), // input
-        .rst      ( rst      ), // input
-        .in_valid ( in_valid ), // input
-        .in_ready ( in_ready ), // output
-        .in_data  (          ), // input  [DATA_W - 1:0]
-        .spi_clk  ( spi_clk  ), // output
-        .spi_cs_n (          ), // output
-        .spi_mosi (          ), // output
-        .spi_miso ( spi_miso )  // input
+        .clk       ( clk       ), // input
+        .rst       ( rst       ), // input
+        .in_valid  ( in_valid  ), // input
+        .in_ready  ( in_ready  ), // output
+        .in_data   (           ), // input  [DATA_W - 1:0]
+        .out_valid ( out_valid ), // output
+        .out_data  (           ), // output [         7:0]
+        .spi_clk   ( spi_clk   ), // output
+        .spi_cs_n  (           ), // output
+        .spi_mosi  (           ), // output
+        .spi_miso  ( spi_miso  )  // input
     );
 
     //------------------------------------------------------------------------
@@ -114,9 +120,26 @@ module w5500_cpu_driver_tb;
 
         // a <= 1'b0;
 
-        repeat (200)
-            @ (posedge clk);
-        
+        @ ( posedge clk );
+
+        @ ( posedge out_valid );
+
+        repeat (500)
+        @ ( posedge clk );
+
+        in_valid <= 1'b1;
+
+        @ ( posedge clk );
+
+        // repeat (7) @ ( posedge clk );
+
+        while ( in_valid & in_ready )
+        begin
+            @ ( posedge clk);
+        end
+
+        in_valid <= 1'b0;
+
 
 
         //--------------------------------------------------------------------
