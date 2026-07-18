@@ -218,8 +218,10 @@ void loop() {
   w5500_read(W5500_S_TX_WR, W5500_BSB_S0, pointerData, 2);
   uint16_t tx_offset = (pointerData[0] << 8) | pointerData[1];
 
-  // if (random(2) == 1) ( delayMicroseconds(20) );
+  Serial.print("Offset: ");
+  Serial.println(tx_offset);
 
+  // if (random(2) == 1) ( delayMicroseconds(20) );
 
   snprintf(payload_chars, DATA_CH_CNT, "Hello world! %d cnt", counter);
   counter += 1;
@@ -262,7 +264,7 @@ void loop() {
   // regData = S_IR_INT_SENDOK; 
   // w5500_write(W5500_S_IR, W5500_BSB_S0, &regData, 1);
 
-  delay(500); // Wait 1 second between transmissions
+  delay(100); // Wait 1 second between transmissions
   // delayMicroseconds(100);
   
   // if (random(1, 1000) == 50) {

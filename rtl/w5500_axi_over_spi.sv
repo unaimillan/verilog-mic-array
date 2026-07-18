@@ -366,18 +366,6 @@ module w5500_axi_over_spi
 
     // -------------------------------------------------------------------------
 
-    // assign write_mem_last              = write_mem_ptr_next == 5'( awlen_r );
-    // assign request_write_transfer_done = write_mem_last;
-    // assign spi_write_transfer_done     = write_mem_last & spi_rx_valid;
-
-    // always_ff @( posedge clk )
-    // begin
-    //     if ( request_write_transfer_active & wvalid )
-    //         write_mem[write_mem_ptr] <= wdata;
-    // end
-
-    // -------------------------------------------------------------------------
-
     always_comb
     begin
         spi_tx_request = '0;
