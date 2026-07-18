@@ -145,58 +145,83 @@ module common_top
     //     .spi_clk     ( gpio[ 36+13 ] )
     // );
 
-    // logic             eth_valid;
-    // logic             eth_ready;
-    // logic [31:0][7:0] eth_data;
+    (* keep *) logic spi_cs_n;
+    (* keep *) logic spi_mosi;
+    (* keep *) logic spi_miso;
+    (* keep *) logic spi_clk;
+    (* keep *) logic spi_int;
 
-    // logic [63:0] eth_counter, eth_counter_next;
+    // assign spi_cs_n = gpio[ 36+10 ];
+    // assign spi_mosi = gpio[ 36+11 ];
+    // assign spi_miso = gpio[ 36+12 ];
+    // assign spi_clk  = gpio[ 36+13 ];
+    // assign spi_int  = '0 ;
 
-    // counter_timer
-    // #(
-    //     .MAX_VALUE ( 100_000_000 )
-    // ) 
-    // cnt_inst
-    // (
-    //     .clk          ( clk                ), // input
-    //     .rst          ( rst                ), // input
-    //     .soft_rst     (                 ), // input
-    //     .start        (                 ), // input
-    //     .tick_valid   ( '1                ), // input
-    //     .finished     (                 ), // output logic
-    //     .counter      ( eth_counter                ), // output logic [CNT_W-1:0]
-    //     .counter_next ( eth_counter_next                )  // output logic [CNT_W-1:0]
-    // );
+    // assign spi_cs_n = gpio[ 29 ];
+    // assign spi_mosi = gpio[ 31 ];
+    // assign spi_miso = gpio[ 33 ];
+    // assign spi_clk  = gpio[ 35 ];
+    // assign spi_int  = '0;
 
-    // localparam int BIT_N = 13;
-    // logic eth_strobe;
+    assign gpio [ 36+10 ] = spi_cs_n;
+    assign gpio [ 36+11 ] = spi_mosi;
+    assign spi_miso       = gpio [ 36+12 ];
+    assign gpio [ 36+13 ] = spi_clk;
 
-    // assign eth_strobe = { eth_counter[BIT_N], eth_counter_next[BIT_N] } == 2'b10;
 
-    // assign led[6] = eth_counter[BIT_N];
-    // assign led[7] = eth_strobe;
-    // assign eth_valid = sw[5] & (eth_strobe | sw[6]);
+    logic             eth_valid;
+    logic             eth_ready;
+    logic [31:0][7:0] eth_data;
+
+    logic [63:0] eth_counter, eth_counter_next;
+
+    counter_timer
+    #(
+        .MAX_VALUE ( 100_000_000 )
+    ) 
+    cnt_inst
+    (
+        .clk          ( clk              ), // input
+        .rst          ( rst              ), // input
+        .soft_rst     (                  ), // input
+        .start        (                  ), // input
+        .tick_valid   ( '1               ), // input
+        .finished     (                  ), // output logic
+        .counter      ( eth_counter      ), // output logic [CNT_W-1:0]
+        .counter_next ( eth_counter_next )  // output logic [CNT_W-1:0]
+    );
+
+    localparam int BIT_N = 12;
+    // localparam int BIT_N = 20;
+    logic eth_strobe;
+
+    assign eth_strobe = { eth_counter[BIT_N], eth_counter_next[BIT_N] } == 2'b10;
+
+    assign led[6] = eth_counter[BIT_N];
+    assign led[7] = eth_strobe;
+    assign eth_valid = sw[5] & (eth_strobe | sw[6]);
     // assign led[8] = gpio[ 36 + 10 ];
 
-    // w5500_ucpu_driver
-    // # (
-    //     .DATA_W ( 32 )
-    // )
-    // w5500_adapter_inst
-    // (
-    //     .clk      ( clk ),
-    //     .rst      ( rst ),
+    w5500_ucpu_driver
+    # (
+        .DATA_W ( 32 )
+    )
+    w5500_adapter_inst
+    (
+        .clk      ( clk       ),
+        .rst      ( rst       ),
 
-    //     .in_valid ( eth_valid ),
-    //     .in_ready ( eth_ready ),
-    //     .in_data  (    ),
+        .in_valid ( eth_valid ),
+        .in_ready ( eth_ready ),
+        .in_data  (           ),
 
-    //     .out_data ( abcdefgh ),
+        .out_data ( abcdefgh ),
 
-    //     .spi_cs_n ( gpio[ 36+10 ] ),
-    //     .spi_mosi ( gpio[ 36+11 ] ),
-    //     .spi_miso ( gpio[ 36+12 ] ),
-    //     .spi_clk  ( gpio[ 36+13 ] )
-    // );
+        .spi_cs_n ( spi_cs_n ),
+        .spi_mosi ( spi_mosi ),
+        .spi_miso ( spi_miso ),
+        .spi_clk  ( spi_clk  )
+    );
 
     // GPIO 36 pins, 0 to 35; ARDUINO pins
 
@@ -238,31 +263,14 @@ module common_top
     // Logic Analyzer for SPI W5500
     //------------------------------------------------------------------------
 
-    (* keep *) logic spi_clk;
-    (* keep *) logic spi_cs_n;
-    (* keep *) logic spi_mosi;
-    (* keep *) logic spi_miso;
-    (* keep *) logic spi_int;
-    (* keep *) logic pll_clk_56mhz;
-    (* keep *) logic pll_clk_14mhz;
+    // (* keep *) logic pll_clk_56mhz;
+    // (* keep *) logic pll_clk_14mhz;
 
     // quartus_pll pll_inst (
     //     .inclk0 ( clk           ),
     //     .c0     ( pll_clk_56mhz ),
     //     .c1     ( pll_clk_14mhz )
     // );
-
-    // assign spi_cs_n = gpio[ 36+10 ];
-    // assign spi_mosi = gpio[ 36+11 ];
-    // assign spi_miso = gpio[ 36+12 ];
-    // assign spi_clk  = gpio[ 36+13 ];
-    // assign spi_int  = '0 ;
-
-    assign spi_cs_n = gpio[ 29 ];
-    assign spi_mosi = gpio[ 31 ];
-    assign spi_miso = gpio[ 33 ];
-    assign spi_clk  = gpio[ 35 ];
-    assign spi_int  = '0 ;
 
     logic [100:0] temp1, temp2, temp3;
 
@@ -283,7 +291,7 @@ module common_top
 
     assign led[4] = ^ { temp1, temp2, temp3 };
 
-    assign led[7] = sw[7];
+    // assign led[7] = sw[7];
 
     //------------------------------------------------------------------------
 
