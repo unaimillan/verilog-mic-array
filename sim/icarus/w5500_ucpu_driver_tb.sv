@@ -53,8 +53,8 @@ module w5500_cpu_driver_tb;
         .out_valid ( out_valid ), // output
         .out_data  (           ), // output [         7:0]
         .spi_clk   ( spi_clk   ), // output
-        .spi_cs_n  (           ), // output
-        .spi_mosi  (           ), // output
+        .spi_cs_n  ( spi_csn   ), // output
+        .spi_mosi  ( spi_mosi  ), // output
         .spi_miso  ( spi_miso  )  // input
     );
 
@@ -91,7 +91,11 @@ module w5500_cpu_driver_tb;
             // Uncomment the following line
             // to generate a VCD file and analyze it using GTKwave or Surfer
 
-            $dumpvars;
+            // $dumpfile;
+            // $dumpvars;
+
+            // $dumpfile("spi_dump.vcd");
+            // $dumpvars(0, spi_clk, spi_csn, spi_mosi, spi_miso);
         `endif
 
         @ (negedge rst);

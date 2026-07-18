@@ -109,7 +109,7 @@ module w5500_axi_over_spi
     logic            spi_req_rwb;          // read - 0, write - 1
     logic [ 1:0]     spi_req_mode;         // variable by SCSn - 00, 1 byte - 01, 2 byte - 10, 4 byte - 11
 
-    assign rw_mode = awvalid & ( ~ arvalid );
+    assign rw_mode = awvalid;
 
     assign spi_req_block_select = rw_mode ? aw_block_select : ar_block_select;
     assign spi_req_rwb          = rw_mode;
@@ -152,8 +152,7 @@ module w5500_axi_over_spi
                 arready = 1'b0;
                 next_state = ST_RECV_WRITE_REQ;
             end
-
-            if ( arvalid )
+            else if ( arvalid )
             begin
                 next_state = ST_SPI_SEND_ADDR;
             end
@@ -357,8 +356,8 @@ module w5500_axi_over_spi
             rlast  = counter_next == CNT_W'(arlen_r);
         end
 
-        request_write_transfer_done = ( counter_next == CNT_W'(awlen_r) ) & wvalid & wready;
-        spi_write_transfer_done     = ( counter      == CNT_W'(awlen_r) ) & spi_ack_request;
+        request_write_transfer_done = ( counter      == CNT_W'(awlen_r) );
+        spi_write_transfer_done     = ( counter_next == CNT_W'(awlen_r) ) & spi_ack_request;
         spi_read_transfer_done      = ( counter      == CNT_W'(arlen_r) ) & spi_rx_valid;
         response_read_transfer_done = ( counter_next == CNT_W'(arlen_r) ) & rready;
     end
