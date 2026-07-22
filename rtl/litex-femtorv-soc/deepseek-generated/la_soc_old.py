@@ -2,6 +2,7 @@
 
 # la_soc.py – LiteScope + UART bridge with probe0..probe7 of different widths
 
+from litex.build.sim.platform import SimPlatform
 from migen import *
 from litex.build.generic_platform import *
 
@@ -36,31 +37,33 @@ _io = [
     ("probe7", 0, Pins(64)),
 ]
 
-class Platform(GenericPlatform):
+class Platform(SimPlatform):
     def __init__(self):
-        GenericPlatform.__init__(self, device="", io=_io, name="la_standalone")
+        SimPlatform.__init__(self, device="", io=_io, name="la_standalone")
+
+    # def build(self, *args, **kwargs):
+    #     print(f'Generic build with: {args} {kwargs}')
 
 # ----------------------------------------------------------------------
 # 2. SoC definition
 # ----------------------------------------------------------------------
 class LAStandalone(SoCCore):
     def __init__(self, platform, sys_clk_freq=50e6):
-        SoCCore.__init__(self, platform, sys_clk_freq, cpu_type=None)
+        SoCCore.__init__(
+            self, 
+            platform, 
+            sys_clk_freq, 
+            cpu_type=None,
+            uart_name=None,
+            with_uart=False,
+            with_uartbone=True
+        )
 
         # Clock and reset
         self.submodules.crg = CRG(
             platform.request("clk"),
             platform.request("rst")
         )
-
-        # UART -> Wishbone bridge
-        uart_pads = platform.request("serial")
-        self.submodules.uart_bridge = UARTWishboneBridge(
-            pads     = uart_pads,
-            clk_freq = sys_clk_freq,
-            baudrate = 115200
-        )
-        self.add_master("uart_bridge", self.uart_bridge.wishbone)
 
         # Collect all probe signals
         probes = [
@@ -75,12 +78,12 @@ class LAStandalone(SoCCore):
         ]
 
         # Logic analyser – all probes as one group "probes"
-        self.submodules.analyzer = LiteScopeAnalyzer(
-            groups = {"probes" : probes},
+        analyzer = LiteScopeAnalyzer(
+            groups = probes,
             depth  = 2048,
         )
-        self.add_slave("analyzer", self.analyzer.bus,
-                       region=SoCRegion(origin=0x00000000, size=0x1000))
+        self.submodules += analyzer
+
 
 # ----------------------------------------------------------------------
 # 3. Build
@@ -93,6 +96,7 @@ def main():
         compile_software  = False,
     )
     builder.build()
+    soc.finalize()
 
 
 if __name__ == "__main__":

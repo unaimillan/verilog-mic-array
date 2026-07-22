@@ -38,9 +38,6 @@ class VirtualPlatform(GenericPlatform):
     def __init__(self):
         GenericPlatform.__init__(self, "", _io, name="virtual_analyzer")
 
-    def build(*args, **kw_args):
-        pass
-
 
 # ==============================================================================
 # 2. Virtual Analyzer SoC Design
