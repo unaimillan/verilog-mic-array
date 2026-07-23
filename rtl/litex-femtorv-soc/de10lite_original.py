@@ -23,6 +23,8 @@ from litex.soc.cores.led import LedChaser
 from litedram.modules import IS42S16320
 from litedram.phy import GENSDRPHY
 
+from litescope import LiteScopeAnalyzer
+
 # CRG ----------------------------------------------------------------------------------------------
 
 class _CRG(LiteXModule):
@@ -83,6 +85,18 @@ class BaseSoC(SoCCore):
                 pads         = platform.request_all("user_led"),
                 sys_clk_freq = sys_clk_freq)
 
+        probes = [
+            platform.request("gpio_0"),
+        ]
+        
+        # Instantiate LiteScope Analyzer and automatically attach its CSRs to the SoC fabric
+        # depth=1024 denotes how many sample entries are kept in the internal SRAM buffer.
+        self.submodules.analyzer = LiteScopeAnalyzer(probes, 
+            depth        = 1024, 
+            clock_domain = "sys", 
+            register     = True
+        )
+
 # Build --------------------------------------------------------------------------------------------
 
 def main():
@@ -105,9 +119,11 @@ def main():
         **parser.soc_argdict
     )
 
-    builder = Builder(soc, **parser.builder_argdict)
-    if args.build:
-        builder.build(**parser.toolchain_argdict)
+    builder = Builder(soc, **(parser.builder_argdict | dict(compile_gateware=False, compile_software=False)))
+    # if args.build:
+    #     builder.build(**parser.toolchain_argdict)
+    
+    builder.build(**parser.toolchain_argdict)
 
     if args.load:
         prog = soc.platform.create_programmer()
